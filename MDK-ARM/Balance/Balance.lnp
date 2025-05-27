@@ -1,0 +1,28 @@
+--cpu Cortex-M3
+"balance\startup_stm32f103xb.o"
+"balance\main.o"
+"balance\gpio.o"
+"balance\dma.o"
+"balance\i2c.o"
+"balance\usart.o"
+"balance\stm32f1xx_it.o"
+"balance\stm32f1xx_hal_msp.o"
+"balance\mpu6050.o"
+"balance\stm32f1xx_hal_gpio_ex.o"
+"balance\stm32f1xx_hal_i2c.o"
+"balance\stm32f1xx_hal.o"
+"balance\stm32f1xx_hal_rcc.o"
+"balance\stm32f1xx_hal_rcc_ex.o"
+"balance\stm32f1xx_hal_gpio.o"
+"balance\stm32f1xx_hal_dma.o"
+"balance\stm32f1xx_hal_cortex.o"
+"balance\stm32f1xx_hal_pwr.o"
+"balance\stm32f1xx_hal_flash.o"
+"balance\stm32f1xx_hal_flash_ex.o"
+"balance\stm32f1xx_hal_exti.o"
+"balance\stm32f1xx_hal_uart.o"
+"balance\system_stm32f1xx.o"
+--strict --scatter "Balance\Balance.sct"
+--summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
+--info sizes --info totals --info unused --info veneers
+--list "Balance.map" -o Balance\Balance.axf

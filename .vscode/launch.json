@@ -1,0 +1,48 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug STM32",
+            "cwd": "${workspaceFolder}",
+            "executable": "./build/Balance.elf",
+            "request": "launch",
+            "type": "cortex-debug",
+            "runToEntryPoint": "main",
+            "servertype": "stlink",
+            "device": "STM32F103C8",
+            "interface": "swd",
+            "serialNumber": "",
+            "runToMain": true,
+            "preLaunchTask": "Build",
+            "svdFile": "./STM32F103xx.svd",
+            "showDevDebugOutput": "parsed",
+            "swoConfig": {
+                "enabled": true,
+                "cpuFrequency": 72000000,
+                "swoFrequency": 2000000,
+                "source": "probe",
+                "decoders": [
+                    {
+                        "label": "ITM Port 0",
+                        "type": "console",
+                        "port": 0,
+                        "showOnStartup": true,
+                        "logToFile": true
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Attach STM32",
+            "cwd": "${workspaceFolder}",
+            "executable": "./build/Balance.elf",
+            "request": "attach",
+            "type": "cortex-debug",
+            "servertype": "stlink",
+            "device": "STM32F103C8",
+            "interface": "swd",
+            "svdFile": "./STM32F103xx.svd",
+            "showDevDebugOutput": "parsed"
+        }
+    ]
+}

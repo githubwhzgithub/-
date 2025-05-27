@@ -1,0 +1,6 @@
+--c99 -c --cpu Cortex-M3 -g -O3 --apcs=interwork --split_sections -I ../Core/Inc -I ../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I ../Drivers/STM32F1xx_HAL_Driver/Inc -I ../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I ../Drivers/CMSIS/Include
+-I.\RTE\_Balance
+-I"D:\Program Files\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include"
+-I"D:\Program Files\Arm\Packs\Keil\STM32F1xx_DFP\2.4.1\Device\Include"
+-D__UVISION_VERSION="542" -DSTM32F10X_MD -D_RTE_ -DUSE_HAL_DRIVER -DSTM32F103xB
+-o balance\stm32f1xx_hal_gpio.o --omf_browse balance\stm32f1xx_hal_gpio.crf --depend balance\stm32f1xx_hal_gpio.d "../Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_gpio.c"
