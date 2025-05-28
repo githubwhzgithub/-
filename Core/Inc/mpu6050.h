@@ -1,14 +1,14 @@
 #ifndef __MPU6050_H
 #define __MPU6050_H
+
 #include "main.h"
 #include "i2c.h"
-#endif
- 
- 
+
+
 #define MPU6050_I2C      		hi2c1
-#define MPU6050_ADDR     		0xD0   
+#define MPU6050_ADDR     		0xD0
 #define I2C_TimeOut  			100
- 
+
 /*MPU6050内部寄存器地址*/
 #define MPU_SAMPLE_RATE_REG		0X19	//采样频率分频器
 #define MPU_GYRO_CFG_REG		0X1B	//陀螺仪配置寄存器
@@ -18,7 +18,7 @@
 #define MPU_GYRO_XOUTH_REG		0X43	//陀螺仪值,X轴高8位寄存器
 #define MPU_PWR_MGMT1_REG		0X6B	//电源管理寄存器1
 #define MPU_DEVICE_ID_REG		0X75	//器件ID寄存器
- 
+
 uint8_t MPU6050_Init(I2C_HandleTypeDef *I2Cx);
 float MPU_Get_Temperature(void);
 uint8_t MPU_Get_RAW_Gyroscope(int16_t *gx,int16_t *gy,int16_t *gz);
@@ -41,7 +41,7 @@ typedef struct {
 void MPU_Get_Filtered_Angles(float *pitch, float *roll);
 void Kalman_Init(void);
 double Kalman_getAngle(Kalman_t *Kalman, double newAngle, double newRate, double dt);
- 
+
 /*
 MPU6050内部所有寄存器地址
 #define MPU_SELF_TESTX_REG		0X0D	//自检寄存器X
@@ -99,9 +99,11 @@ MPU6050内部所有寄存器地址
 #define MPU_MDETECT_CTRL_REG	0X69	//运动检测控制寄存器
 #define MPU_USER_CTRL_REG		0X6A	//用户控制寄存器
 #define MPU_PWR_MGMT1_REG		0X6B	//电源管理寄存器1
-#define MPU_PWR_MGMT2_REG		0X6C	//电源管理寄存器2 
+#define MPU_PWR_MGMT2_REG		0X6C	//电源管理寄存器2
 #define MPU_FIFO_CNTH_REG		0X72	//FIFO计数寄存器高八位
 #define MPU_FIFO_CNTL_REG		0X73	//FIFO计数寄存器低八位
 #define MPU_FIFO_RW_REG			0X74	//FIFO读写寄存器
 #define MPU_DEVICE_ID_REG		0X75	//器件ID寄存器
 */
+
+#endif // __MPU6050_H

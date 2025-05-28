@@ -1,6 +1,0 @@
---cpu Cortex-M3 -g --apcs=interwork 
--I.\RTE\_Balance
--I"D:\Program Files\Arm\Packs\ARM\CMSIS\6.1.0\CMSIS\Core\Include"
--I"D:\Program Files\Arm\Packs\Keil\STM32F1xx_DFP\2.4.1\Device\Include"
---pd "__UVISION_VERSION SETA 542" --pd "STM32F10X_MD SETA 1" --pd "_RTE_ SETA 1"
---list startup_stm32f103xb.lst --xref -o balance\startup_stm32f103xb.o --depend balance\startup_stm32f103xb.d "startup_stm32f103xb.s"

@@ -88,16 +88,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   if(huart->Instance == USART3)
   {
-    rx_data_ready = 1;
-    // Stop DMA reception to process data, will be restarted in main loop
-    HAL_UART_DMAStop(&huart3);
+    // 蓝牙数据接收处理 (HC-05使用UART3: PB10-TX, PB11-RX)
+    Bluetooth_HandleRxData(Bluetooth.rx_buffer[0]);
+    // 重新启动接收
+    HAL_UART_Receive_IT(&huart3, &Bluetooth.rx_buffer[0], 1);
   }
   else if(huart->Instance == USART2)
   {
-    // 蓝牙数据接收处理
-    Bluetooth_HandleRxData(Bluetooth.rx_buffer[0]);
-    // 重新启动接收
-    HAL_UART_Receive_IT(&huart2, &Bluetooth.rx_buffer[0], 1);
+    // USART2预留给摄像头使用
+    // 暂时不处理，以后会用到
   }
 }
 /* USER CODE END 0 */
@@ -141,12 +140,12 @@ int main(void)
   /* USER CODE BEGIN 2 */
   // 初始化UART接收
   HAL_UART_Receive_DMA(&huart3, rx_buffer, 1); // Start DMA reception for 1 byte
-  
+
   uint8_t init_msg[200];
-  
+
   // 延时等待系统稳定
   HAL_Delay(100);
-  
+
   // 初始化MPU6050
   if (MPU6050_Init(&hi2c1) != 0)
   {
@@ -160,37 +159,37 @@ int main(void)
     HAL_UART_Transmit(&huart3, init_msg, strlen((char*)init_msg), 1000);
     Kalman_Init(); // Initialize Kalman filters
   }
-  
+
   // 初始化TB6612电机驱动
   TB6612_Init();
   sprintf((char*)init_msg, "TB6612 Motor Driver initialized!\r\n");
   HAL_UART_Transmit(&huart3, init_msg, strlen((char*)init_msg), 1000);
-  
+
   // 初始化编码器
   MotorEncoder_Init();
   sprintf((char*)init_msg, "Motor Encoders initialized!\r\n");
   HAL_UART_Transmit(&huart3, init_msg, strlen((char*)init_msg), 1000);
-  
+
   // 初始化超声波
   Ultrasonic_Init();
   sprintf((char*)init_msg, "Ultrasonic sensor initialized!\r\n");
   HAL_UART_Transmit(&huart3, init_msg, strlen((char*)init_msg), 1000);
-  
+
   // 初始化平衡控制
   BalanceControl_Init();
   sprintf((char*)init_msg, "Balance Control initialized!\r\n");
   HAL_UART_Transmit(&huart3, init_msg, strlen((char*)init_msg), 1000);
-  
+
   // 初始化蓝牙通信
   Bluetooth_Init();
   sprintf((char*)init_msg, "Bluetooth Communication initialized!\r\n");
   HAL_UART_Transmit(&huart3, init_msg, strlen((char*)init_msg), 1000);
-  
+
   // 系统初始化完成
   system_initialized = 1;
   sprintf((char*)init_msg, "\r\n=== Balance Robot System Ready ===\r\n");
   HAL_UART_Transmit(&huart3, init_msg, strlen((char*)init_msg), 1000);
-  
+
   // 初始化时间变量
   last_balance_update = HAL_GetTick();
   last_encoder_update = HAL_GetTick();
@@ -207,48 +206,48 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
     if(!system_initialized) continue;
-    
+
     uint32_t current_time = HAL_GetTick();
-    
+
     // 高频率平衡控制更新 (每5毫秒)
     if (current_time - last_balance_update >= BALANCE_CONTROL_INTERVAL)
     {
       last_balance_update = current_time;
       BalanceControl_Update();
     }
-    
+
     // 编码器数据更新 (每10毫秒)
     if (current_time - last_encoder_update >= ENCODER_UPDATE_INTERVAL)
     {
       last_encoder_update = current_time;
       MotorEncoder_Update();
     }
-    
+
     // 超声波测距更新 (每50毫秒)
     if (current_time - last_ultrasonic_update >= ULTRASONIC_UPDATE_INTERVAL)
     {
       last_ultrasonic_update = current_time;
       Ultrasonic_Update();
     }
-    
+
     // 蓝牙通信更新 (每20毫秒)
     if (current_time - last_bluetooth_update >= BLUETOOTH_UPDATE_INTERVAL)
     {
       last_bluetooth_update = current_time;
       Bluetooth_Update();
     }
-    
+
     // 状态信息发送 (每1秒)
     if (current_time - last_status_send >= STATUS_SEND_INTERVAL)
     {
       last_status_send = current_time;
-      
+
       // 发送系统状态到调试串口
       BalanceState_t* state = BalanceControl_GetState();
       uint8_t status_msg[200];
-      sprintf((char*)status_msg, 
+      sprintf((char*)status_msg,
               "[DEBUG] Pitch:%.2f Roll:%.2f Speed:%.2f Dist:%.1fcm Enable:%d\r\n",
-              state->pitch, state->roll, 
+              state->pitch, state->roll,
               (state->left_speed + state->right_speed) / 2.0f,
               state->distance_front,
               state->balance_enabled);

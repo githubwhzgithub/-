@@ -27,7 +27,7 @@ void TB6612_Init(void)
     // 启动PWM定时器
     HAL_TIM_PWM_Start(MOTOR_PWM_TIMER, MOTOR_A_PWM_CHANNEL);
     HAL_TIM_PWM_Start(MOTOR_PWM_TIMER, MOTOR_B_PWM_CHANNEL);
-    
+
     // 初始化电机为停止状态
     TB6612_StopAllMotors();
 }
@@ -45,17 +45,17 @@ void TB6612_SetMotorDirection(Motor_t* motor, MotorDirection_t direction)
             HAL_GPIO_WritePin(motor->IN1_Port, motor->IN1_Pin, GPIO_PIN_SET);
             HAL_GPIO_WritePin(motor->IN2_Port, motor->IN2_Pin, GPIO_PIN_RESET);
             break;
-            
+
         case MOTOR_BACKWARD:
             HAL_GPIO_WritePin(motor->IN1_Port, motor->IN1_Pin, GPIO_PIN_RESET);
             HAL_GPIO_WritePin(motor->IN2_Port, motor->IN2_Pin, GPIO_PIN_SET);
             break;
-            
+
         case MOTOR_STOP:
             HAL_GPIO_WritePin(motor->IN1_Port, motor->IN1_Pin, GPIO_PIN_RESET);
             HAL_GPIO_WritePin(motor->IN2_Port, motor->IN2_Pin, GPIO_PIN_RESET);
             break;
-            
+
         case MOTOR_BRAKE:
             HAL_GPIO_WritePin(motor->IN1_Port, motor->IN1_Pin, GPIO_PIN_SET);
             HAL_GPIO_WritePin(motor->IN2_Port, motor->IN2_Pin, GPIO_PIN_SET);
@@ -73,9 +73,9 @@ void TB6612_SetMotorSpeed(Motor_t* motor, int16_t speed)
     // 限制速度范围
     if(speed > 1000) speed = 1000;
     if(speed < -1000) speed = -1000;
-    
+
     motor->current_speed = speed;
-    
+
     // 根据速度符号设置方向
     if(speed > 0)
     {

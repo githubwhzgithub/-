@@ -6,7 +6,7 @@
 #include "balance_control.h"
 
 // 蓝牙通信参数
-#define BT_UART_HANDLE      &huart2     // HC-05使用UART2
+#define BT_UART_HANDLE      &huart3     // HC-05使用UART3
 #define BT_RX_BUFFER_SIZE   64          // 接收缓冲区大小
 #define BT_TX_BUFFER_SIZE   128         // 发送缓冲区大小
 #define BT_COMMAND_MAX_LEN  32          // 最大命令长度

@@ -26,12 +26,20 @@ balance\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash.h
 balance\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash_ex.h
 balance\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_i2c.h
 balance\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pwr.h
+balance\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim.h
+balance\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim_ex.h
 balance\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_uart.h
 balance\main.o: ../Core/Inc/dma.h
 balance\main.o: ../Core/Inc/i2c.h
+balance\main.o: ../Core/Inc/tim.h
 balance\main.o: ../Core/Inc/usart.h
 balance\main.o: ../Core/Inc/gpio.h
 balance\main.o: D:\Program Files\Keil_v5\ARM\ARMCC\Bin\..\include\string.h
 balance\main.o: D:\Program Files\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
 balance\main.o: D:\Program Files\Keil_v5\ARM\ARMCC\Bin\..\include\stdlib.h
 balance\main.o: ../Core/Inc/mpu6050.h
+balance\main.o: ../Core/Inc/TB6612.h
+balance\main.o: ../Core/Inc/motorencoder.h
+balance\main.o: ../Core/Inc/ultrasonic.h
+balance\main.o: ../Core/Inc/balance_control.h
+balance\main.o: ../Core/Inc/bluetooth.h

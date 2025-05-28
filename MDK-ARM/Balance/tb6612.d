@@ -1,0 +1,33 @@
+balance\tb6612.o: ..\Core\Src\TB6612.c
+balance\tb6612.o: ../Core/Inc/TB6612.h
+balance\tb6612.o: ../Core/Inc/main.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h
+balance\tb6612.o: ../Core/Inc/stm32f1xx_hal_conf.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_def.h
+balance\tb6612.o: ../Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f1xx.h
+balance\tb6612.o: ../Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f103xb.h
+balance\tb6612.o: ../Drivers/CMSIS/Include/core_cm3.h
+balance\tb6612.o: D:\Program Files\Keil_v5\ARM\ARMCC\Bin\..\include\stdint.h
+balance\tb6612.o: ../Drivers/CMSIS/Include/cmsis_version.h
+balance\tb6612.o: ../Drivers/CMSIS/Include/cmsis_compiler.h
+balance\tb6612.o: ../Drivers/CMSIS/Include/cmsis_armcc.h
+balance\tb6612.o: ../Drivers/CMSIS/Device/ST/STM32F1xx/Include/system_stm32f1xx.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h
+balance\tb6612.o: D:\Program Files\Keil_v5\ARM\ARMCC\Bin\..\include\stddef.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc_ex.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_gpio.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_gpio_ex.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_exti.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_dma.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_dma_ex.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_cortex.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash_ex.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_i2c.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pwr.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim_ex.h
+balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_uart.h
+balance\tb6612.o: ../Core/Inc/tim.h

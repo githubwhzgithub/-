@@ -28,14 +28,14 @@ void Bluetooth_Init(void)
 {
     // 启动UART接收中断
     HAL_UART_Receive_IT(BT_UART_HANDLE, &Bluetooth.rx_buffer[0], 1);
-    
+
     // 初始化状态
     Bluetooth.state = BT_STATE_IDLE;
     Bluetooth.rx_index = 0;
     Bluetooth.command_ready = 0;
     Bluetooth.connected = 0;
     Bluetooth.last_heartbeat = HAL_GetTick();
-    
+
     // 发送初始化消息
     Bluetooth_SendMessage("Balance Robot Ready\r\n");
 }
@@ -46,18 +46,18 @@ void Bluetooth_Init(void)
 void Bluetooth_Update(void)
 {
     uint32_t current_time = HAL_GetTick();
-    
+
     // 检查连接状态 (5秒无通信则认为断开)
     if(current_time - Bluetooth.last_heartbeat > 5000) {
         Bluetooth.connected = 0;
     }
-    
+
     // 处理接收到的命令
     if(Bluetooth.command_ready) {
         Bluetooth_ProcessCommand();
         Bluetooth.command_ready = 0;
     }
-    
+
     // 定期发送状态信息 (每2秒)
     static uint32_t last_status_time = 0;
     if(current_time - last_status_time > 2000 && Bluetooth.connected) {
@@ -74,7 +74,7 @@ void Bluetooth_HandleRxData(uint8_t data)
 {
     Bluetooth.last_heartbeat = HAL_GetTick();
     Bluetooth.connected = 1;
-    
+
     // 检查是否为命令结束符
     if(data == '\r' || data == '\n') {
         if(Bluetooth.rx_index > 0) {
@@ -111,14 +111,14 @@ void Bluetooth_ProcessCommand(void)
 {
     char* cmd = (char*)Bluetooth.command_buffer;
     char* param = NULL;
-    
+
     // 查找空格分隔符
     char* space_pos = strchr(cmd, ' ');
     if(space_pos != NULL) {
         *space_pos = '\0';
         param = space_pos + 1;
     }
-    
+
     // 执行命令
     Bluetooth_ExecuteCommand(cmd, param);
 }
@@ -131,7 +131,7 @@ void Bluetooth_ProcessCommand(void)
 static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
 {
     BalanceState_t* state = BalanceControl_GetState();
-    
+
     if(strcmp(cmd, BT_CMD_START) == 0) {
         BalanceControl_Enable(1);
         Bluetooth_SendResponse("Balance Started\r\n");
@@ -214,14 +214,14 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
 void Bluetooth_SendStatus(void)
 {
     BalanceState_t* state = BalanceControl_GetState();
-    
-    sprintf((char*)Bluetooth.tx_buffer, 
+
+    sprintf((char*)Bluetooth.tx_buffer,
             "STATUS: Pitch=%.2f Roll=%.2f Speed=%.2f Distance=%.1fcm Enabled=%d\r\n",
-            state->pitch, state->roll, 
+            state->pitch, state->roll,
             (state->left_speed + state->right_speed) / 2.0f,
             state->distance_front,
             state->balance_enabled);
-    
+
     Bluetooth_SendResponse((char*)Bluetooth.tx_buffer);
 }
 
