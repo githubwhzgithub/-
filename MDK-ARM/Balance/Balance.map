@@ -2679,7 +2679,7 @@ Image Symbol Table
     MX_I2C1_Init                             0x08005511   Thumb Code    50  i2c.o(i.MX_I2C1_Init)
     MX_TIM1_Init                             0x08005551   Thumb Code   164  tim.o(i.MX_TIM1_Init)
     MX_TIM2_Init                             0x080055fd   Thumb Code    98  tim.o(i.MX_TIM2_Init)
-    MX_TIM3_Init                             0x08005665   Thumb Code   162  tim.o(i.MX_TIM3_Init)
+    MX_TIM3_Init                             0x08005665   Thumb Code   164  tim.o(i.MX_TIM3_Init)
     MX_USART2_UART_Init                      0x08005711   Thumb Code    48  usart.o(i.MX_USART2_UART_Init)
     MX_USART3_UART_Init                      0x08005749   Thumb Code    48  usart.o(i.MX_USART3_UART_Init)
     MemManage_Handler                        0x08005781   Thumb Code     2  stm32f1xx_it.o(i.MemManage_Handler)
@@ -3274,12 +3274,12 @@ Image component sizes
        110         42          0          0          0       6902   stm32f1xx_it.o
          2          0         24          4          0       1023   system_stm32f1xx.o
        390         34          0         48          0       4474   tb6612.o
-       748         70          0          0        216       4629   tim.o
+       748         68          0          0        216       4629   tim.o
        572         76          0          0         48       4700   ultrasonic.o
        496         44          0          0        416       2579   usart.o
 
     ----------------------------------------------------------------------
-     17670       1700        384        280       2732     590379   Object Totals
+     17670       1698        384        280       2732     590379   Object Totals
          0          0         32          0          0          0   (incl. Generated)
         24          0          5          0          2          0   (incl. Padding)
 
@@ -3411,9 +3411,9 @@ Image component sizes
 
       Code (inc. data)   RO Data    RW Data    ZI Data      Debug   
 
-     32748       2506        848        280       2832     585611   Grand Totals
-     32748       2506        848        280       2832     585611   ELF Image Totals
-     32748       2506        848        280          0          0   ROM Totals
+     32748       2504        848        280       2832     585611   Grand Totals
+     32748       2504        848        280       2832     585611   ELF Image Totals
+     32748       2504        848        280          0          0   ROM Totals
 
 ==============================================================================
 
