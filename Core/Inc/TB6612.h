@@ -12,10 +12,10 @@
 #define MOTOR_A_IN2_PIN     GPIO_PIN_1
 
 // 电机B控制引脚
-#define MOTOR_B_IN1_PORT    GPIOA
-#define MOTOR_B_IN1_PIN     GPIO_PIN_2
-#define MOTOR_B_IN2_PORT    GPIOA
-#define MOTOR_B_IN2_PIN     GPIO_PIN_3
+#define MOTOR_B_IN1_PORT    GPIOB
+#define MOTOR_B_IN1_PIN     GPIO_PIN_6
+#define MOTOR_B_IN2_PORT    GPIOB
+#define MOTOR_B_IN2_PIN     GPIO_PIN_7
 
 // PWM定时器和通道定义
 #define MOTOR_PWM_TIMER     &htim3

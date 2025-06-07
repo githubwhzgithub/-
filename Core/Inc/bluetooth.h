@@ -12,6 +12,7 @@
 #define BT_COMMAND_MAX_LEN  32          // 最大命令长度
 
 // 蓝牙命令定义
+#define BT_CMD_GO           "GO"        // 连接请求
 #define BT_CMD_START        "START"     // 开始平衡
 #define BT_CMD_STOP         "STOP"      // 停止平衡
 #define BT_CMD_FORWARD      "FORWARD"   // 前进
@@ -23,6 +24,10 @@
 #define BT_CMD_SPEED        "SPEED"     // 设置速度
 #define BT_CMD_ANGLE        "ANGLE"     // 设置角度
 #define BT_CMD_PID          "PID"       // 设置PID参数
+#define BT_CMD_VISION       "VISION"    // 设置视觉模式
+#define BT_CMD_LINE         "LINE"      // 循迹模式
+#define BT_CMD_TRACK        "TRACK"     // 物体追踪模式
+#define BT_CMD_VISION_OFF   "VOFF"      // 关闭视觉
 
 // 蓝牙状态枚举
 typedef enum {

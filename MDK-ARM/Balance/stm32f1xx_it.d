@@ -32,3 +32,5 @@ balance\stm32f1xx_it.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_uart.h
 balance\stm32f1xx_it.o: ../Core/Inc/stm32f1xx_it.h
 balance\stm32f1xx_it.o: ../Core/Inc/ultrasonic.h
 balance\stm32f1xx_it.o: ../Core/Inc/tim.h
+balance\stm32f1xx_it.o: ../Core/Inc/gpio.h
+balance\stm32f1xx_it.o: ../Core/Inc/usart.h

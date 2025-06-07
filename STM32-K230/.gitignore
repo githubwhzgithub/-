@@ -1,0 +1,8 @@
+Listings
+Objects
+*.Administrator
+*.ini
+.vscode
+
+**/OUTPUT
+!**/OUTPUT/*.hex

@@ -53,7 +53,10 @@ BalanceState_t BalanceState = {
     .target_angle = BALANCE_TARGET_ANGLE,
     .distance_front = 0.0f,
     .balance_enabled = 0,
-    .obstacle_detected = 0
+    .obstacle_detected = 0,
+    .vision_mode = 0,
+    .vision_error_x = 0.0f,
+    .vision_error_y = 0.0f
 };
 
 // 私有变量
@@ -170,12 +173,14 @@ void BalanceControl_Update(void)
     BalanceState.left_speed = MotorEncoder_GetSpeedMPS(&EncoderA);
     BalanceState.right_speed = MotorEncoder_GetSpeedMPS(&EncoderB);
 
-    // 更新超声波数据
-    Ultrasonic_Update();
-    BalanceState.distance_front = Ultrasonic_GetFilteredDistance();
+    // 获取超声波数据
+    BalanceState.distance_front = Ultrasonic_GetDistance();
 
     // 障碍物检测
     BalanceControl_ObstacleAvoidance();
+    
+    // 视觉控制更新
+    BalanceControl_VisionUpdate();
 
     // 检查是否需要紧急停止
     if(fabs(BalanceState.pitch) > MAX_TILT_ANGLE ||
@@ -200,8 +205,13 @@ void BalanceControl_Update(void)
     AnglePID.setpoint = BalanceState.target_angle + speed_output;
     float angle_output = BalanceControl_PID_Update(&AnglePID, BalanceState.pitch, dt);
 
-    // 转向控制 (基于横滚角)
-    TurnPID.setpoint = 0.0f; // 保持直行
+    // 转向控制 (基于横滚角和视觉误差)
+    float turn_setpoint = 0.0f;
+    if(BalanceState.vision_mode > 0) {
+        // 视觉模式下使用视觉误差作为转向目标
+        turn_setpoint = BalanceState.vision_error_x;
+    }
+    TurnPID.setpoint = turn_setpoint;
     float turn_output = BalanceControl_PID_Update(&TurnPID, BalanceState.roll, dt);
 
     // 计算左右电机输出
@@ -297,4 +307,127 @@ void BalanceControl_ObstacleAvoidance(void)
 BalanceState_t* BalanceControl_GetState(void)
 {
     return &BalanceState;
+}
+
+/**
+ * @brief 设置视觉控制模式
+ * @param mode 视觉模式 - 0:关闭, 1:循迹, 2:物体追踪
+ */
+void BalanceControl_SetVisionMode(uint8_t mode)
+{
+    BalanceState.vision_mode = mode;
+    
+    // 切换模式时重置视觉误差
+    BalanceState.vision_error_x = 0.0f;
+    BalanceState.vision_error_y = 0.0f;
+    
+    // 设置K230视觉模块的工作模式
+    /*if(mode == 1) {
+        K230_Vision_SetMode(K230_MODE_LINE_TRACKING);
+    } else if(mode == 2) {
+        K230_Vision_SetMode(K230_MODE_OBJECT_TRACKING);
+    } else {
+        K230_Vision_SetMode(K230_MODE_IDLE);
+    }*/
+}
+
+/**
+ * @brief 视觉控制更新
+ * @note 根据视觉数据调整平衡车的运动
+ */
+void BalanceControl_VisionUpdate(void)
+{
+    if(BalanceState.vision_mode == 1) {
+        // 循迹模式
+        BalanceControl_LineTracking();
+    } else if(BalanceState.vision_mode == 2) {
+        // 物体追踪模式
+        BalanceControl_ObjectTracking();
+    }
+}
+
+/**
+ * @brief 循迹控制
+ * @note 根据线条位置调整转向
+ */
+void BalanceControl_LineTracking(void)
+{
+    /*K230_LineTrack_t* line_data = K230_Vision_GetLineTrackingData();
+    
+    if(K230_Vision_IsLineDetected()) {
+        // 计算线条中心相对于图像中心的偏移
+        float image_center_x = 160.0f; // 假设图像宽度为320像素
+        float line_center_x = line_data->line_x + line_data->line_w / 2.0f;
+        
+        // 计算X轴误差 (转向控制)
+        BalanceState.vision_error_x = (line_center_x - image_center_x) / image_center_x;
+        
+        // 限制误差范围
+        if(BalanceState.vision_error_x > 1.0f) BalanceState.vision_error_x = 1.0f;
+        if(BalanceState.vision_error_x < -1.0f) BalanceState.vision_error_x = -1.0f;
+        
+        // 根据线条宽度调整速度 (线条越宽说明越近，速度可以快一些)
+        float speed_factor = line_data->w / 100.0f; // 归一化线条宽度
+        if(speed_factor > 1.0f) speed_factor = 1.0f;
+        if(speed_factor < 0.3f) speed_factor = 0.3f; // 最小速度因子
+        
+        // 设置前进速度
+        BalanceState.target_speed = 0.2f * speed_factor; // 基础速度0.2m/s
+        
+    } else {
+        // 没有检测到线条，停止前进
+        BalanceState.target_speed = 0.0f;
+        BalanceState.vision_error_x = 0.0f;
+    } */
+}
+
+/**
+ * @brief 物体追踪控制
+ * @note 根据物体位置调整运动
+ */
+void BalanceControl_ObjectTracking(void)
+{
+    /*K230_ObjectTrack_t* obj_data = K230_Vision_GetObjectTrackingData();
+    
+    if(K230_Vision_IsObjectDetected()) {
+        // 计算物体中心相对于图像中心的偏移
+        float image_center_x = 160.0f; // 假设图像宽度为320像素
+        float image_center_y = 120.0f; // 假设图像高度为240像素
+        
+        float obj_center_x = obj_data->obj_x + obj_data->obj_w / 2.0f;
+        float obj_center_y = obj_data->obj_y + obj_data->obj_h / 2.0f;
+        
+        // 计算X轴误差 (转向控制)
+        BalanceState.vision_error_x = (obj_center_x - image_center_x) / image_center_x;
+        
+        // 计算Y轴误差 (距离控制)
+        BalanceState.vision_error_y = (obj_center_y - image_center_y) / image_center_y;
+        
+        // 限制误差范围
+        if(BalanceState.vision_error_x > 1.0f) BalanceState.vision_error_x = 1.0f;
+        if(BalanceState.vision_error_x < -1.0f) BalanceState.vision_error_x = -1.0f;
+        if(BalanceState.vision_error_y > 1.0f) BalanceState.vision_error_y = 1.0f;
+        if(BalanceState.vision_error_y < -1.0f) BalanceState.vision_error_y = -1.0f;
+        
+        // 根据物体大小调整速度 (物体越大说明越近)
+        float obj_size = obj_data->obj_w * obj_data->obj_h;
+        float distance_factor = 1.0f - (obj_size / (320.0f * 240.0f)); // 归一化距离因子
+        if(distance_factor < 0.1f) distance_factor = 0.1f; // 最小距离因子
+        if(distance_factor > 1.0f) distance_factor = 1.0f;
+        
+        // 设置追踪速度
+        if(distance_factor > 0.5f) {
+            // 物体较远，前进追踪
+            BalanceState.target_speed = 0.3f * distance_factor;
+        } else {
+            // 物体较近，减速或停止
+            BalanceState.target_speed = 0.1f;
+        }
+        
+    } else {
+        // 没有检测到物体，停止运动
+        BalanceState.target_speed = 0.0f;
+        BalanceState.vision_error_x = 0.0f;
+        BalanceState.vision_error_y = 0.0f;
+    } */
 }

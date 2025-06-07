@@ -4,13 +4,18 @@
 Ultrasonic_t Ultrasonic = {
     .distance_cm = 0.0f,
     .state = ULTRASONIC_IDLE,
-    .start_time = 0,
-    .end_time = 0,
+    .start_capture = 0,
+    .end_capture = 0,
+    .pulse_width = 0,
     .measurement_valid = 0,
     .filtered_distance = 0.0f,
     .distance_buffer = {0},
-    .buffer_index = 0
+    .buffer_index = 0,
+    .capture_done = 0
 };
+
+// 外部定时器句柄声明
+extern TIM_HandleTypeDef htim1;
 
 // 私有函数声明
 static void Ultrasonic_DelayUs(uint32_t us);
@@ -73,6 +78,10 @@ void Ultrasonic_Init(void)
         Ultrasonic.distance_buffer[i] = MAX_DISTANCE;
     }
     
+    // 启动TIM1输入捕获功能 (通道3和通道4)
+    HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_3);  // 上升沿捕获
+    HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_4);  // 下降沿捕获
+    
     Ultrasonic.state = ULTRASONIC_IDLE;
 }
 
@@ -87,14 +96,16 @@ void Ultrasonic_StartMeasurement(void)
     
     Ultrasonic.state = ULTRASONIC_MEASURING;
     Ultrasonic.measurement_valid = 0;
+    Ultrasonic.capture_done = 0;
+    Ultrasonic.measurement_start_tick = HAL_GetTick(); // 记录测量开始时间
+    
+    // 重置定时器计数器
+    __HAL_TIM_SET_COUNTER(&htim1, 0);
     
     // 发送触发脉冲
     HAL_GPIO_WritePin(TRIG_PORT, TRIG_PIN, GPIO_PIN_SET);
     Ultrasonic_DelayUs(10); // 10微秒高电平
     HAL_GPIO_WritePin(TRIG_PORT, TRIG_PIN, GPIO_PIN_RESET);
-    
-    // 记录开始时间
-    Ultrasonic.start_time = HAL_GetTick() * 1000 + (SysTick->LOAD - SysTick->VAL) / (SystemCoreClock / 1000000);
 }
 
 /**
@@ -102,39 +113,57 @@ void Ultrasonic_StartMeasurement(void)
  */
 void Ultrasonic_Update(void)
 {
+    // 只有在空闲状态时才开始新的测量
+    if(Ultrasonic.state == ULTRASONIC_IDLE) {
+        Ultrasonic_StartMeasurement();
+        return; // 开始测量后直接返回，等待下次调用处理结果
+    }
+    
+    // 处理测量中的状态
     if(Ultrasonic.state == ULTRASONIC_MEASURING) {
-        uint32_t current_time = HAL_GetTick() * 1000 + (SysTick->LOAD - SysTick->VAL) / (SystemCoreClock / 1000000);
-        
-        // 检查是否超时
-        if((current_time - Ultrasonic.start_time) > TIMEOUT_US) {
-            Ultrasonic.state = ULTRASONIC_TIMEOUT;
-            Ultrasonic.distance_cm = MAX_DISTANCE; // 超时时设置为最大距离
-        }
-        
-        // 检查ECHO引脚状态
-        if(HAL_GPIO_ReadPin(ECHO_PORT, ECHO_PIN) == GPIO_PIN_SET && Ultrasonic.start_time != 0) {
-            // ECHO上升沿，开始计时
-            Ultrasonic.start_time = current_time;
-        }
-        else if(HAL_GPIO_ReadPin(ECHO_PORT, ECHO_PIN) == GPIO_PIN_RESET && Ultrasonic.start_time != 0) {
-            // ECHO下降沿，结束计时
-            Ultrasonic.end_time = current_time;
+        // 检查是否捕获完成
+        if(Ultrasonic.capture_done) {
+            // 计算脉冲宽度对应的时间 (微秒)
+            // TIM1预分频器为71，所以定时器频率为72MHz/(71+1) = 1MHz
+            // 每个计数值对应1微秒
+            float pulse_time_us = (float)Ultrasonic.pulse_width;
             
-            // 计算距离
-            uint32_t pulse_duration = Ultrasonic.end_time - Ultrasonic.start_time;
-            float distance = (pulse_duration * SOUND_SPEED) / (2.0f * 10000.0f); // 转换为cm
+            // 计算距离: 距离 = (脉冲时间 * 声速) / 2
+            // 声速340m/s = 0.034cm/us
+            float distance = (pulse_time_us * 0.034f) / 2.0f;
             
             // 检查距离是否在有效范围内
             if(distance >= MIN_DISTANCE && distance <= MAX_DISTANCE) {
                 Ultrasonic.distance_cm = distance;
-                Ultrasonic.filtered_distance = Ultrasonic_MedianFilter(distance);
                 Ultrasonic.measurement_valid = 1;
+                Ultrasonic.state = ULTRASONIC_IDLE; // 测量成功，回到空闲状态
             } else {
+                // 距离超出范围，标记为错误
+                Ultrasonic.measurement_valid = 0;
                 Ultrasonic.state = ULTRASONIC_ERROR;
             }
             
-            Ultrasonic.state = ULTRASONIC_IDLE;
+            // 重置捕获完成标志
+            Ultrasonic.capture_done = 0;
         }
+        else {
+            // 检查是否超时（使用结构体中的时间戳）
+            uint32_t current_tick = HAL_GetTick();
+            uint32_t elapsed_time = current_tick - Ultrasonic.measurement_start_tick;
+            
+            // 超时时间设置为100ms（根据HC-SR04规格，最大测距时间约为38ms）
+            if(elapsed_time > 50) {
+                Ultrasonic.state = ULTRASONIC_TIMEOUT;
+                Ultrasonic.distance_cm = MAX_DISTANCE;
+                Ultrasonic.measurement_valid = 0;
+                Ultrasonic.capture_done = 0; // 重置捕获标志
+            }
+        }
+    }
+    
+    // 错误或超时状态自动恢复到空闲状态
+    if(Ultrasonic.state == ULTRASONIC_ERROR || Ultrasonic.state == ULTRASONIC_TIMEOUT) {
+        Ultrasonic.state = ULTRASONIC_IDLE;
     }
 }
 
@@ -166,33 +195,30 @@ UltrasonicState_t Ultrasonic_GetState(void)
 }
 
 /**
- * @brief ECHO引脚中断处理函数
+ * @brief TIM1输入捕获回调函数
+ * @param htim: 定时器句柄
  */
-void Ultrasonic_ECHO_IRQHandler(void)
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
-    uint32_t current_time = HAL_GetTick() * 1000 + (SysTick->LOAD - SysTick->VAL) / (SystemCoreClock / 1000000);
-    
-    if(Ultrasonic.state == ULTRASONIC_MEASURING) {
-        if(HAL_GPIO_ReadPin(ECHO_PORT, ECHO_PIN) == GPIO_PIN_SET) {
-            // ECHO上升沿
-            Ultrasonic.start_time = current_time;
-        } else {
-            // ECHO下降沿
-            Ultrasonic.end_time = current_time;
+    if(htim->Instance == TIM1 && Ultrasonic.state == ULTRASONIC_MEASURING) {
+        if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3) {
+            // 通道3捕获到上升沿
+            Ultrasonic.start_capture = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_3);
+        }
+        else if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4) {
+            // 通道4捕获到下降沿
+            Ultrasonic.end_capture = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_4);
             
-            // 计算距离
-            uint32_t pulse_duration = Ultrasonic.end_time - Ultrasonic.start_time;
-            float distance = (pulse_duration * SOUND_SPEED) / (2.0f * 10000.0f); // 转换为cm
-            
-            // 检查距离是否在有效范围内
-            if(distance >= MIN_DISTANCE && distance <= MAX_DISTANCE) {
-                Ultrasonic.distance_cm = distance;
-                Ultrasonic.filtered_distance = Ultrasonic_MedianFilter(distance);
-                Ultrasonic.measurement_valid = 1;
-                Ultrasonic.state = ULTRASONIC_IDLE;
+            // 计算脉冲宽度
+            if(Ultrasonic.end_capture >= Ultrasonic.start_capture) {
+                Ultrasonic.pulse_width = Ultrasonic.end_capture - Ultrasonic.start_capture; 
             } else {
-                Ultrasonic.state = ULTRASONIC_ERROR;
+                // 处理定时器溢出情况
+                Ultrasonic.pulse_width = (0xFFFF - Ultrasonic.start_capture) + Ultrasonic.end_capture + 1;
             }
+
+            // 标记捕获完成
+            Ultrasonic.capture_done = 1;
         }
     }
 }

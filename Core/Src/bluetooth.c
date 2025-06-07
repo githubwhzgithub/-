@@ -17,7 +17,6 @@ Bluetooth_t Bluetooth = {
 };
 
 // 私有函数声明
-static void Bluetooth_ParseCommand(void);
 static void Bluetooth_ExecuteCommand(const char* cmd, const char* param);
 static void Bluetooth_SendResponse(const char* response);
 
@@ -26,18 +25,29 @@ static void Bluetooth_SendResponse(const char* response);
  */
 void Bluetooth_Init(void)
 {
-    // 启动UART接收中断
-    HAL_UART_Receive_IT(BT_UART_HANDLE, &Bluetooth.rx_buffer[0], 1);
-
     // 初始化状态
     Bluetooth.state = BT_STATE_IDLE;
     Bluetooth.rx_index = 0;
     Bluetooth.command_ready = 0;
     Bluetooth.connected = 0;
     Bluetooth.last_heartbeat = HAL_GetTick();
+    
+    // 清空缓冲区
+    memset(Bluetooth.rx_buffer, 0, BT_RX_BUFFER_SIZE);
+    memset(Bluetooth.tx_buffer, 0, BT_TX_BUFFER_SIZE);
+    memset(Bluetooth.command_buffer, 0, BT_COMMAND_MAX_LEN);
 
-    // 发送初始化消息
-    Bluetooth_SendMessage("Balance Robot Ready\r\n");
+    // 启动UART接收中断
+    HAL_UART_Receive_IT(BT_UART_HANDLE, &Bluetooth.rx_buffer[0], 1);
+
+    while(1){
+        // 等待蓝牙模块连接
+        if(strncmp((char*)Bluetooth.rx_buffer, BT_CMD_GO, 2) == 0) {
+            Bluetooth.connected = 1;
+            break; // 连接成功，跳出循环
+        }
+    }
+    
 }
 
 /**
@@ -100,8 +110,8 @@ void Bluetooth_HandleRxData(uint8_t data)
  */
 void Bluetooth_RxCallback(void)
 {
-    // 重新启动接收
-    HAL_UART_Receive_IT(BT_UART_HANDLE, &Bluetooth.rx_buffer[Bluetooth.rx_index], 1);
+    // 这个函数由main.c中的HAL_UART_RxCpltCallback调用
+    // 重新启动接收在main.c中处理
 }
 
 /**
@@ -178,7 +188,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         if(param != NULL) {
             float speed = atof(param);
             BalanceControl_SetTargetSpeed(speed);
-            sprintf((char*)Bluetooth.tx_buffer, "Speed set to %.2f\r\n", speed);
+            snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE, "Speed set to %.2f\r\n", speed);
             Bluetooth_SendResponse((char*)Bluetooth.tx_buffer);
         }
     }
@@ -186,7 +196,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         if(param != NULL) {
             float angle = atof(param);
             BalanceControl_SetTargetAngle(angle);
-            sprintf((char*)Bluetooth.tx_buffer, "Angle set to %.2f\r\n", angle);
+            snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE, "Angle set to %.2f\r\n", angle);
             Bluetooth_SendResponse((char*)Bluetooth.tx_buffer);
         }
     }
@@ -198,10 +208,41 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
                 AnglePID.Kp = kp;
                 AnglePID.Ki = ki;
                 AnglePID.Kd = kd;
-                sprintf((char*)Bluetooth.tx_buffer, "PID set: Kp=%.2f Ki=%.2f Kd=%.2f\r\n", kp, ki, kd);
+                snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE, "PID set: Kp=%.2f Ki=%.2f Kd=%.2f\r\n", kp, ki, kd);
                 Bluetooth_SendResponse((char*)Bluetooth.tx_buffer);
             }
         }
+    }
+    else if(strcmp(cmd, BT_CMD_VISION) == 0) {
+        // 视觉模式设置 (格式: VISION 0/1/2)
+        if(param != NULL) {
+            int mode = atoi(param);
+            if(mode >= 0 && mode <= 2) {
+                BalanceControl_SetVisionMode((uint8_t)mode);
+                const char* mode_names[] = {"OFF", "LINE_TRACKING", "OBJECT_TRACKING"};
+                snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE, "Vision mode set to %s\r\n", mode_names[mode]);
+                Bluetooth_SendResponse((char*)Bluetooth.tx_buffer);
+            } else {
+                Bluetooth_SendResponse("Invalid vision mode (0-2)\r\n");
+            }
+        } else {
+            Bluetooth_SendResponse("Vision mode parameter required\r\n");
+        }
+    }
+    else if(strcmp(cmd, BT_CMD_LINE) == 0) {
+        // 启动循迹模式
+        BalanceControl_SetVisionMode(1);
+        Bluetooth_SendResponse("Line tracking mode enabled\r\n");
+    }
+    else if(strcmp(cmd, BT_CMD_TRACK) == 0) {
+        // 启动物体追踪模式
+        BalanceControl_SetVisionMode(2);
+        Bluetooth_SendResponse("Object tracking mode enabled\r\n");
+    }
+    else if(strcmp(cmd, BT_CMD_VISION_OFF) == 0) {
+        // 关闭视觉模式
+        BalanceControl_SetVisionMode(0);
+        Bluetooth_SendResponse("Vision mode disabled\r\n");
     }
     else {
         Bluetooth_SendResponse("Unknown Command\r\n");
@@ -214,15 +255,29 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
 void Bluetooth_SendStatus(void)
 {
     BalanceState_t* state = BalanceControl_GetState();
-
-    sprintf((char*)Bluetooth.tx_buffer,
-            "STATUS: Pitch=%.2f Roll=%.2f Speed=%.2f Distance=%.1fcm Enabled=%d\r\n",
+    
+    // 获取视觉数据状态
+    const char* vision_modes[] = {"OFF", "LINE", "TRACK"};
+    const char* vision_mode_name = (state->vision_mode <= 2) ? vision_modes[state->vision_mode] : "UNKNOWN";
+    
+    // 发送基本状态信息
+    snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE,
+            "STATUS: Pitch=%.2f Roll=%.2f Speed=%.2f Distance=%.1fcm Enabled=%d Vision=%s\r\n",
             state->pitch, state->roll,
             (state->left_speed + state->right_speed) / 2.0f,
             state->distance_front,
-            state->balance_enabled);
-
+            state->balance_enabled,
+            vision_mode_name);
     Bluetooth_SendResponse((char*)Bluetooth.tx_buffer);
+    
+    // 如果视觉模式开启，发送视觉数据
+    if(state->vision_mode > 0) {
+        snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE,
+                "VISION: ErrorX=%.3f ErrorY=%.3f LineDetected=%d ObjectDetected=%d\r\n",
+                state->vision_error_x, state->vision_error_y,
+                K230_Vision_IsLineDetected(), K230_Vision_IsObjectDetected());
+        Bluetooth_SendResponse((char*)Bluetooth.tx_buffer);
+    }
 }
 
 /**
@@ -231,7 +286,21 @@ void Bluetooth_SendStatus(void)
  */
 void Bluetooth_SendMessage(const char* message)
 {
-    HAL_UART_Transmit(BT_UART_HANDLE, (uint8_t*)message, strlen(message), 1000);
+    if(message == NULL || strlen(message) == 0) {
+        return;
+    }
+    
+    // 检查UART是否忙碌
+    if(HAL_UART_GetState(BT_UART_HANDLE) == HAL_UART_STATE_BUSY_TX) {
+        // 如果正在发送，使用阻塞方式发送
+        HAL_UART_Transmit(BT_UART_HANDLE, (uint8_t*)message, strlen(message), 1000);
+    } else {
+        // 使用DMA发送
+        if(HAL_UART_Transmit_DMA(BT_UART_HANDLE, (uint8_t*)message, strlen(message)) != HAL_OK) {
+            // DMA发送失败，使用阻塞方式
+            HAL_UART_Transmit(BT_UART_HANDLE, (uint8_t*)message, strlen(message), 1000);
+        }
+    }
 }
 
 /**
@@ -241,7 +310,7 @@ void Bluetooth_SendMessage(const char* message)
  */
 void Bluetooth_SendFloat(const char* name, float value)
 {
-    sprintf((char*)Bluetooth.tx_buffer, "%s: %.3f\r\n", name, value);
+    snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE, "%s: %.3f\r\n", name, value);
     Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
 }
 
@@ -252,7 +321,7 @@ void Bluetooth_SendFloat(const char* name, float value)
  */
 void Bluetooth_SendInt(const char* name, int value)
 {
-    sprintf((char*)Bluetooth.tx_buffer, "%s: %d\r\n", name, value);
+    snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE, "%s: %d\r\n", name, value);
     Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
 }
 

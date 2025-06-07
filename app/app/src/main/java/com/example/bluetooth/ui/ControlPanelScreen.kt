@@ -1,15 +1,17 @@
 package com.example.bluetooth.ui
 
-import android.annotation.SuppressLint
-import android.bluetooth.BluetoothDevice
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,311 +31,521 @@ import kotlinx.coroutines.launch
 @Composable
 fun ControlPanelScreen(
     bluetoothManager: CustomBluetoothManager,
-    connectedDevice: BluetoothDevice?,
-    onBackPressed: () -> Unit,
-    modifier: Modifier = Modifier
+    onBackClick: () -> Unit
 ) {
-    val connectionState by bluetoothManager.connectionState.collectAsState()
     val receivedData by bluetoothManager.receivedData.collectAsState()
+    val connectionState by bluetoothManager.connectionState.collectAsState()
+    val isConnected = connectionState is CustomBluetoothManager.ConnectionState.CONNECTED
+    
+    var currentSpeed by remember { mutableFloatStateOf(200f) }
+    var currentAngle by remember { mutableFloatStateOf(0f) }
+    var isBalanceEnabled by remember { mutableStateOf(false) }
+    
     val scope = rememberCoroutineScope()
     
-    var isBalanceEnabled by remember { mutableStateOf(false) }
-    var currentSpeed by remember { mutableStateOf(0.2f) }
-    var currentAngle by remember { mutableStateOf(0f) }
-    var showPIDDialog by remember { mutableStateOf(false) }
+    // 控制函数
+    val moveForward = {
+        scope.launch {
+            bluetoothManager.moveForward(currentSpeed / 1000f)
+        }.let {}
+    }
     
-    // 如果连接断开，自动返回
-    LaunchedEffect(connectionState) {
-        if (connectionState !is CustomBluetoothManager.ConnectionState.CONNECTED) {
-            onBackPressed()
+    val moveBackward = {
+        scope.launch {
+            bluetoothManager.moveBackward(currentSpeed / 1000f)
+        }.let {}
+    }
+    
+    val turnLeft = {
+        scope.launch {
+            bluetoothManager.turnLeft()
+        }.let {}
+    }
+    
+    val turnRight = {
+        scope.launch {
+            bluetoothManager.turnRight()
+        }.let {}
+    }
+    
+    val stopMovement = {
+        scope.launch {
+            bluetoothManager.stopBalance()
+        }.let {}
+    }
+    
+    val setAngle = { angle: Float ->
+        scope.launch {
+            bluetoothManager.setAngle(angle)
         }
     }
     
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF1e3c72),
-                        Color(0xFF2a5298)
+    val setSpeed = { speed: Float ->
+        scope.launch {
+            bluetoothManager.setSpeed(speed / 1000f)
+        }
+    }
+    
+    val toggleBalance = {
+        scope.launch {
+            if (isBalanceEnabled) {
+                bluetoothManager.stopBalance()
+            } else {
+                bluetoothManager.startBalance()
+            }
+            isBalanceEnabled = !isBalanceEnabled
+        }.let {}
+    }
+    
+    val resetSystem = {
+        scope.launch {
+            bluetoothManager.resetSystem()
+            bluetoothManager.setSpeed(currentSpeed / 1000f)
+        }.let {}
+    }
+    
+    val getStatus = {
+        scope.launch {
+            bluetoothManager.getStatus()
+        }.let {}
+    }
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { 
+                    Text(
+                        "Balance Robot Control",
+                        fontWeight = FontWeight.Bold
                     )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { /* Settings */ }) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
                 )
             )
-    ) {
-        // 背景装饰
-        Box(
+        }
+    ) { paddingValues ->
+        LazyColumn(
             modifier = Modifier
-                .size(300.dp)
-                .offset(x = 200.dp, y = (-100).dp)
-                .background(
-                    Color.White.copy(alpha = 0.05f),
-                    CircleShape
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // 连接状态指示器
+            item {
+                ConnectionStatusCard(isConnected = isConnected)
+            }
+            
+            // HC-05蓝牙消息显示卡片
+            item {
+                BluetoothMessageCard(
+                    receivedData = receivedData
                 )
+            }
+            
+            // 数据显示卡片
+            if (receivedData.isNotEmpty()) {
+                item {
+                    DataDisplayCard(
+                        data = receivedData,
+                        title = "Robot Status"
+                    )
+                }
+            }
+            
+            // 角度控制卡片
+            item {
+                AngleControlCard(
+                    currentAngle = currentAngle,
+                    onAngleChange = { angle ->
+                        currentAngle = angle
+                        setAngle(angle)
+                    }
+                )
+            }
+            
+            // 系统状态控制卡片
+            item {
+                SystemStatusCard(
+                    isBalanceEnabled = isBalanceEnabled,
+                    onToggleBalance = toggleBalance,
+                    onReset = resetSystem,
+                    onGetStatus = getStatus
+                )
+            }
+            
+            // 方向控制卡片
+            item {
+                DirectionControlCard(
+                    onMoveForward = moveForward,
+                    onMoveBackward = moveBackward,
+                    onTurnLeft = turnLeft,
+                    onTurnRight = turnRight,
+                    onStop = stopMovement
+                )
+            }
+            
+            // 速度控制卡片
+            item {
+                SpeedControlCard(
+                    currentSpeed = currentSpeed,
+                    onSpeedChange = { speed ->
+                        currentSpeed = speed
+                        setSpeed(speed)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ConnectionStatusCard(isConnected: Boolean) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isConnected) {
+                Color(0xFF4CAF50).copy(alpha = 0.1f)
+            } else {
+                Color(0xFFF44336).copy(alpha = 0.1f)
+            }
         )
-        
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .background(
+                        color = if (isConnected) Color(0xFF4CAF50) else Color(0xFFF44336),
+                        shape = CircleShape
+                    )
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = if (isConnected) "Connected to Robot" else "Disconnected",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+@Composable
+fun BluetoothMessageCard(
+    receivedData: String,
+    modifier: Modifier = Modifier
+) {
+    val listState = rememberLazyListState()
+    val messages = remember(receivedData) {
+        if (receivedData.isNotEmpty()) {
+            receivedData.split("\n").filter { it.isNotBlank() }
+        } else {
+            emptyList()
+        }
+    }
+    
+    // 自动滚动到最新消息
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
+    
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(200.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            // 顶部栏
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = "Balance Control Panel",
-                            color = Color.White,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        connectedDevice?.let { device ->
-                            @SuppressLint("MissingPermission")
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Bluetooth,
+                    contentDescription = "Bluetooth Messages",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "HC-05 蓝牙消息",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = "${messages.size} 条消息",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Card(
+                modifier = Modifier.fillMaxSize(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                if (messages.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Bluetooth,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Connected to: ${if (bluetoothManager.hasBluetoothPermissions()) device.name ?: "Unknown" else "Unknown"}",
-                                color = Color.White.copy(alpha = 0.8f),
-                                fontSize = 12.sp
+                                text = "等待蓝牙消息...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
                         }
                     }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackPressed) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { showPIDDialog = true }) {
-                        Icon(
-                            Icons.Default.Settings,
-                            contentDescription = "PID Settings",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
-            )
-            
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // 系统状态卡片
-                item {
-                    SystemStatusCard(
-                        isBalanceEnabled = isBalanceEnabled,
-                        onToggleBalance = { enabled ->
-                            isBalanceEnabled = enabled
-                            scope.launch {
-                                if (enabled) {
-                                    bluetoothManager.startBalance()
-                                } else {
-                                    bluetoothManager.stopBalance()
-                                }
-                            }
-                        },
-                        onReset = {
-                            scope.launch {
-                                bluetoothManager.resetSystem()
-                                isBalanceEnabled = false
-                                currentSpeed = 0.2f
-                                currentAngle = 0f
-                            }
-                        },
-                        onGetStatus = {
-                            scope.launch {
-                                bluetoothManager.getStatus()
-                            }
-                        }
-                    )
-                }
-                
-                // 方向控制卡片
-                item {
-                    DirectionControlCard(
-                        onForward = {
-                            scope.launch {
-                                bluetoothManager.moveForward(currentSpeed)
-                            }
-                        },
-                        onBackward = {
-                            scope.launch {
-                                bluetoothManager.moveBackward(currentSpeed)
-                            }
-                        },
-                        onLeft = {
-                            scope.launch {
-                                bluetoothManager.turnLeft()
-                            }
-                        },
-                        onRight = {
-                            scope.launch {
-                                bluetoothManager.turnRight()
-                            }
-                        },
-                        onStop = {
-                            scope.launch {
-                                bluetoothManager.stopBalance()
-                                isBalanceEnabled = false
-                            }
-                        }
-                    )
-                }
-                
-                // 速度控制卡片
-                item {
-                    SpeedControlCard(
-                        currentSpeed = currentSpeed,
-                        onSpeedChange = { speed ->
-                            currentSpeed = speed
-                            scope.launch {
-                                bluetoothManager.setSpeed(speed)
-                            }
-                        }
-                    )
-                }
-                
-                // 角度控制卡片
-                item {
-                    AngleControlCard(
-                        currentAngle = currentAngle,
-                        onAngleChange = { angle ->
-                            currentAngle = angle
-                            scope.launch {
-                                bluetoothManager.setAngle(angle)
-                            }
-                        }
-                    )
-                }
-                
-                // 数据显示卡片
-                if (receivedData.isNotEmpty()) {
-                    item {
-                        DataDisplayCard(
-                            data = receivedData,
-                            title = "Robot Status"
-                        )
-                    }
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        itemsIndexed(messages) { index, message ->
+                            val isLatest = index == messages.size - 1
+                            
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isLatest) {
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                    }
+                                ),
+                                elevation = CardDefaults.cardElevation(
+                                    defaultElevation = if (isLatest) 2.dp else 1.dp
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = (index + 1).toString() + ".",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.width(24.dp)
+                                    )
+                                    Text(
+                                        text = message,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (isLatest) {
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                } // Row
+                            } // Card
+                        } // itemsIndexed
+                    } // LazyColumn
                 }
             }
         }
     }
-    
-    // PID设置对话框
-    if (showPIDDialog) {
-        PIDSettingsDialog(
-            onDismiss = { showPIDDialog = false },
-            onConfirm = { kp, ki, kd ->
-                scope.launch {
-                    bluetoothManager.setPID(kp, ki, kd)
-                }
-                showPIDDialog = false
-            }
+}
+
+@Composable
+fun DataDisplayCard(
+    data: String,
+    title: String
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = data,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        MaterialTheme.colorScheme.surface,
+                        RoundedCornerShape(8.dp)
+                    )
+                    .padding(12.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun AngleControlCard(
+    currentAngle: Float,
+    onAngleChange: (Float) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "Angle Control",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Text(
+                text = "Current Angle: ${currentAngle.toInt()}°",
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Slider(
+                value = currentAngle,
+                onValueChange = onAngleChange,
+                valueRange = -45f..45f,
+                steps = 89,
+                modifier = Modifier.fillMaxWidth()
+            )
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "-45°",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "45°",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 
 @Composable
 fun SystemStatusCard(
     isBalanceEnabled: Boolean,
-    onToggleBalance: (Boolean) -> Unit,
+    onToggleBalance: () -> Unit,
     onReset: () -> Unit,
     onGetStatus: () -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(12.dp, RoundedCornerShape(20.dp)),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        shape = RoundedCornerShape(20.dp)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
         Column(
-            modifier = Modifier.padding(24.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
             Text(
                 text = "System Control",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF2D3748)
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
             )
+            Spacer(modifier = Modifier.height(16.dp))
             
-            Spacer(modifier = Modifier.height(20.dp))
-            
-            // 平衡开关
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column {
-                    Text(
-                        text = "Balance Mode",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF2D3748)
+                Button(
+                    onClick = onToggleBalance,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isBalanceEnabled) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        }
                     )
+                ) {
                     Text(
-                        text = if (isBalanceEnabled) "Enabled" else "Disabled",
-                        fontSize = 12.sp,
-                        color = if (isBalanceEnabled) Color(0xFF48BB78) else Color(0xFF718096)
+                        text = if (isBalanceEnabled) "Disable Balance" else "Enable Balance",
+                        fontSize = 12.sp
                     )
                 }
                 
-                Switch(
-                    checked = isBalanceEnabled,
-                    onCheckedChange = onToggleBalance,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = Color(0xFF48BB78),
-                        uncheckedThumbColor = Color.White,
-                        uncheckedTrackColor = Color(0xFFE2E8F0)
-                    )
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(20.dp))
-            
-            // 控制按钮
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Button(
+                OutlinedButton(
                     onClick = onReset,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFE53E3E)
-                    ),
-                    shape = RoundedCornerShape(12.dp)
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = "RESET",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text("Reset", fontSize = 12.sp)
                 }
                 
-                Button(
+                OutlinedButton(
                     onClick = onGetStatus,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF3182CE)
-                    ),
-                    shape = RoundedCornerShape(12.dp)
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = "STATUS",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text("Status", fontSize = 12.sp)
                 }
             }
         }
@@ -342,133 +554,83 @@ fun SystemStatusCard(
 
 @Composable
 fun DirectionControlCard(
-    onForward: () -> Unit,
-    onBackward: () -> Unit,
-    onLeft: () -> Unit,
-    onRight: () -> Unit,
+    onMoveForward: () -> Unit,
+    onMoveBackward: () -> Unit,
+    onTurnLeft: () -> Unit,
+    onTurnRight: () -> Unit,
     onStop: () -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(12.dp, RoundedCornerShape(20.dp)),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        shape = RoundedCornerShape(20.dp)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
         Column(
-            modifier = Modifier.padding(24.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "Direction Control",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF2D3748)
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
             )
+            Spacer(modifier = Modifier.height(16.dp))
             
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // 方向控制盘
-            Box(
-                modifier = Modifier.size(220.dp),
-                contentAlignment = Alignment.Center
+            // 十字方向控制布局
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // 外圆环
-                Box(
-                    modifier = Modifier
-                        .size(220.dp)
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    Color(0xFFF7FAFC),
-                                    Color(0xFFE2E8F0)
-                                )
-                            ),
-                            CircleShape
+                // 前进按钮
+//                DirectionButton(
+//                    text = "↑",
+//                    label = "Forward",
+//                    onClick = onMoveForward
+//                )
+                
+                // 左转、停止、右转按钮
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+//                    DirectionButton(
+//                        text = "←",
+//                        label = "Left",
+//                        onClick = onTurnLeft
+//                    )
+                    
+                    Button(
+                        onClick = onStop,
+                        modifier = Modifier.size(60.dp),
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        ),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            text = "STOP",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
                         )
-                        .shadow(8.dp, CircleShape)
-                )
-                
-                // 内圆环
-                Box(
-                    modifier = Modifier
-                        .size(180.dp)
-                        .background(
-                            Color.White,
-                            CircleShape
-                        )
-                        .shadow(4.dp, CircleShape)
-                )
-                
-                // 方向按钮
-                // 前进
-                Box(
-                    modifier = Modifier.offset(y = (-70).dp)
-                ) {
-                    DirectionButton(
-                        text = "↑",
-                        label = "FORWARD",
-                        onClick = onForward,
-                        color = Color(0xFF48BB78)
-                    )
+                    }
+                    
+//                    DirectionButton(
+//                        text = "→",
+//                        label = "Right",
+//                        onClick = onTurnRight
+//                    )
                 }
                 
-                // 后退
-                Box(
-                    modifier = Modifier.offset(y = 70.dp)
-                ) {
-                    DirectionButton(
-                        text = "↓",
-                        label = "BACKWARD",
-                        onClick = onBackward,
-                        color = Color(0xFF3182CE)
-                    )
-                }
-                
-                // 左转
-                Box(
-                    modifier = Modifier.offset(x = (-70).dp)
-                ) {
-                    DirectionButton(
-                        text = "←",
-                        label = "LEFT",
-                        onClick = onLeft,
-                        color = Color(0xFFED8936)
-                    )
-                }
-                
-                // 右转
-                Box(
-                    modifier = Modifier.offset(x = 70.dp)
-                ) {
-                    DirectionButton(
-                        text = "→",
-                        label = "RIGHT",
-                        onClick = onRight,
-                        color = Color(0xFF9F7AEA)
-                    )
-                }
-                
-                // 中心停止按钮
-                Button(
-                    onClick = onStop,
-                    modifier = Modifier.size(50.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFE53E3E)
-                    ),
-                    shape = CircleShape,
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Text(
-                        text = "STOP",
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                // 后退按钮
+//                DirectionButton(
+//                    text = "↓",
+//                    label = "Backward",
+//                    onClick = onMoveBackward
+//                )
             }
         }
     }
@@ -478,31 +640,27 @@ fun DirectionControlCard(
 fun DirectionButton(
     text: String,
     label: String,
-    onClick: () -> Unit,
-    color: Color
+    onClick: () -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Button(
             onClick = onClick,
-            modifier = Modifier.size(50.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = color
-            ),
+            modifier = Modifier.size(60.dp),
             shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            ),
             contentPadding = PaddingValues(0.dp)
         ) {
             Text(
                 text = text,
-                color = Color.White,
-                fontSize = 24.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
         }
-        
         Spacer(modifier = Modifier.height(4.dp))
-        
         Text(
             text = label,
             fontSize = 10.sp,
@@ -518,31 +676,28 @@ fun SpeedControlCard(
     onSpeedChange: (Float) -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(12.dp, RoundedCornerShape(20.dp)),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        shape = RoundedCornerShape(20.dp)
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
         Column(
-            modifier = Modifier.padding(24.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
             Text(
                 text = "Speed Control",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF2D3748)
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
             )
-            
             Spacer(modifier = Modifier.height(16.dp))
             
             Text(
-                text = "Current Speed: ${String.format("%.2f", currentSpeed)}",
-                fontSize = 16.sp,
-                color = Color(0xFF4A5568),
-                fontWeight = FontWeight.Medium
+                text = "Current Speed: ${currentSpeed.toInt()}",
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -550,13 +705,9 @@ fun SpeedControlCard(
             Slider(
                 value = currentSpeed,
                 onValueChange = onSpeedChange,
-                valueRange = 0f..1f,
-                steps = 19,
-                colors = SliderDefaults.colors(
-                    thumbColor = Color(0xFF3182CE),
-                    activeTrackColor = Color(0xFF3182CE),
-                    inactiveTrackColor = Color(0xFFE2E8F0)
-                )
+                valueRange = 0f..1000f,
+                steps = 99,
+                modifier = Modifier.fillMaxWidth()
             )
             
             Row(
@@ -564,198 +715,16 @@ fun SpeedControlCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "0.0",
-                    fontSize = 12.sp,
-                    color = Color(0xFF718096)
+                    text = "0",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "1.0",
-                    fontSize = 12.sp,
-                    color = Color(0xFF718096)
+                    text = "1000",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
     }
-}
-
-@Composable
-fun AngleControlCard(
-    currentAngle: Float,
-    onAngleChange: (Float) -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(12.dp, RoundedCornerShape(20.dp)),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        shape = RoundedCornerShape(20.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(24.dp)
-        ) {
-            Text(
-                text = "Angle Control",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF2D3748)
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = "Target Angle: ${String.format("%.1f", currentAngle)}°",
-                fontSize = 16.sp,
-                color = Color(0xFF4A5568),
-                fontWeight = FontWeight.Medium
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Slider(
-                value = currentAngle,
-                onValueChange = onAngleChange,
-                valueRange = -30f..30f,
-                steps = 59,
-                colors = SliderDefaults.colors(
-                    thumbColor = Color(0xFF9F7AEA),
-                    activeTrackColor = Color(0xFF9F7AEA),
-                    inactiveTrackColor = Color(0xFFE2E8F0)
-                )
-            )
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "-30°",
-                    fontSize = 12.sp,
-                    color = Color(0xFF718096)
-                )
-                Text(
-                    text = "0°",
-                    fontSize = 12.sp,
-                    color = Color(0xFF718096)
-                )
-                Text(
-                    text = "30°",
-                    fontSize = 12.sp,
-                    color = Color(0xFF718096)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun DataDisplayCard(
-    data: String,
-    title: String
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(12.dp, RoundedCornerShape(20.dp)),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        shape = RoundedCornerShape(20.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(24.dp)
-        ) {
-            Text(
-                text = title,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF2D3748)
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = data,
-                fontSize = 14.sp,
-                color = Color(0xFF4A5568),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Color(0xFFF7FAFC),
-                        RoundedCornerShape(12.dp)
-                    )
-                    .padding(16.dp)
-            )
-        }
-    }
-}
-
-@Composable
-fun PIDSettingsDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (Float, Float, Float) -> Unit
-) {
-    var kp by remember { mutableStateOf("1.0") }
-    var ki by remember { mutableStateOf("0.1") }
-    var kd by remember { mutableStateOf("0.05") }
-    
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "PID Parameters",
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = kp,
-                    onValueChange = { kp = it },
-                    label = { Text("Kp (Proportional)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                OutlinedTextField(
-                    value = ki,
-                    onValueChange = { ki = it },
-                    label = { Text("Ki (Integral)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                OutlinedTextField(
-                    value = kd,
-                    onValueChange = { kd = it },
-                    label = { Text("Kd (Derivative)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    try {
-                        val kpFloat = kp.toFloat()
-                        val kiFloat = ki.toFloat()
-                        val kdFloat = kd.toFloat()
-                        onConfirm(kpFloat, kiFloat, kdFloat)
-                    } catch (e: NumberFormatException) {
-                        // 处理输入错误
-                    }
-                }
-            ) {
-                Text("Confirm")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
 }

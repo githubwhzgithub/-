@@ -400,6 +400,41 @@
               <FilePath>../Core/Src/mpu6050.c</FilePath>
             </File>
             <File>
+              <FileName>balance_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\balance_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>bluetooth.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\bluetooth.c</FilePath>
+            </File>
+            <File>
+              <FileName>motorencoder.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\motorencoder.c</FilePath>
+            </File>
+            <File>
+              <FileName>system_stm32f1xx.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\system_stm32f1xx.c</FilePath>
+            </File>
+            <File>
+              <FileName>TB6612.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\TB6612.c</FilePath>
+            </File>
+            <File>
+              <FileName>ultrasonic.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\ultrasonic.c</FilePath>
+            </File>
+            <File>
+              <FileName>k230_vision.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\k230_vision.c</FilePath>
+            </File>
+            <File>
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/Src/main.c</FilePath>
@@ -642,36 +677,6 @@
               <FileName>stm32f1xx_hal_msp.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/Src/stm32f1xx_hal_msp.c</FilePath>
-            </File>
-            <File>
-              <FileName>balance_control.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\Src\balance_control.c</FilePath>
-            </File>
-            <File>
-              <FileName>bluetooth.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\Src\bluetooth.c</FilePath>
-            </File>
-            <File>
-              <FileName>motorencoder.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\Src\motorencoder.c</FilePath>
-            </File>
-            <File>
-              <FileName>system_stm32f1xx.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\Src\system_stm32f1xx.c</FilePath>
-            </File>
-            <File>
-              <FileName>TB6612.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\Src\TB6612.c</FilePath>
-            </File>
-            <File>
-              <FileName>ultrasonic.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\Src\ultrasonic.c</FilePath>
             </File>
           </Files>
         </Group>

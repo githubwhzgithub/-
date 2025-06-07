@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "眉峰一号"
+rootProject.name = "BalanceApp"
 include(":app")
  

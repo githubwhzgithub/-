@@ -19,6 +19,7 @@
 #include "TB6612.h"         // TB6612电机驱动模块
 #include "motorencoder.h"   // 电机编码器模块
 #include "ultrasonic.h"     // 超声波测距模块
+#include "k230_vision.h"    // K230视觉模块
 
 /* 数据结构定义 */
 
@@ -55,6 +56,9 @@ typedef struct {
     float distance_front;       // 前方距离 - 超声波测得的前方障碍物距离（厘米）
     uint8_t balance_enabled;    // 平衡使能标志 - 1:启用平衡控制, 0:禁用
     uint8_t obstacle_detected;  // 障碍物检测标志 - 1:检测到障碍物, 0:无障碍物
+    uint8_t vision_mode;        // 视觉模式 - 0:关闭, 1:循迹, 2:物体追踪
+    float vision_error_x;       // 视觉X轴误差 - 用于转向控制
+    float vision_error_y;       // 视觉Y轴误差 - 用于速度控制
 } BalanceState_t;
 
 /* 平衡控制系统参数定义 */
@@ -154,6 +158,30 @@ void BalanceControl_ObstacleAvoidance(void);
  * @return 平衡车状态结构体指针
  */
 BalanceState_t* BalanceControl_GetState(void);
+
+/**
+ * @brief 设置视觉控制模式
+ * @param mode 视觉模式 - 0:关闭, 1:循迹, 2:物体追踪
+ */
+void BalanceControl_SetVisionMode(uint8_t mode);
+
+/**
+ * @brief 视觉控制更新
+ * @note 根据视觉数据调整平衡车的运动
+ */
+void BalanceControl_VisionUpdate(void);
+
+/**
+ * @brief 循迹控制
+ * @note 根据线条位置调整转向
+ */
+void BalanceControl_LineTracking(void);
+
+/**
+ * @brief 物体追踪控制
+ * @note 根据物体位置调整运动
+ */
+void BalanceControl_ObjectTracking(void);
 
 /* 全局变量外部声明 */
 

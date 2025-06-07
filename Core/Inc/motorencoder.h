@@ -5,7 +5,7 @@
 #include "tim.h"
 
 // 编码器定时器定义
-#define ENCODER_A_TIMER     &htim1  // 电机A编码器使用TIM1
+#define ENCODER_A_TIMER     &htim4  // 电机A编码器使用TIM4
 #define ENCODER_B_TIMER     &htim2  // 电机B编码器使用TIM2
 
 // 编码器参数
