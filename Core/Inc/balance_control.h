@@ -54,6 +54,7 @@ typedef struct {
     float right_speed;          // 右轮速度 - 右电机的实际转速（编码器计数/秒）
     float target_speed;         // 目标速度 - 期望的前进后退速度
     float target_angle;         // 目标角度 - 期望的平衡角度（通常为0度）
+    float target_yaw_rate;      // 目标偏航角速度 - 期望的转向角速度（度/秒）
     float distance_front;       // 前方距离 - 超声波测得的前方障碍物距离（厘米）
     uint8_t balance_enabled;    // 平衡使能标志 - 1:启用平衡控制, 0:禁用
     uint8_t obstacle_detected;  // 障碍物检测标志 - 1:检测到障碍物, 0:无障碍物
@@ -126,6 +127,12 @@ void BalanceControl_SetTargetSpeed(float speed);
  * @param angle 目标角度值（度）
  */
 void BalanceControl_SetTargetAngle(float angle);
+
+/**
+ * @brief 设置目标偏航角速度（用于转向控制）
+ * @param yaw_rate 目标偏航角速度值（度/秒）
+ */
+void BalanceControl_SetTargetYawRate(float yaw_rate);
 
 /**
  * @brief PID控制器更新计算

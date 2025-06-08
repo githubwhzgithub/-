@@ -293,15 +293,7 @@ int main(void)
       last_status_send = current_time;
 
       // 发送系统状态信息到串口（用于调试和监控）
-      BalanceState_t* state = BalanceControl_GetState();  // 获取当前平衡车状态
-      uint8_t status_msg[200];
-      sprintf((char*)status_msg,
-              "[DEBUG] Pitch:%.2f Roll:%.2f Speed:%.2f Dist:%.1fcm Enable:%d\r\n",
-              state->pitch, state->roll,
-              (state->left_speed + state->right_speed) / 2.0f,
-              state->distance_front,
-              state->balance_enabled);
-      HAL_UART_Transmit(&huart3, status_msg, strlen((char*)status_msg), 100);
+      Bluetooth_SendStatus();
     }
   }
   /* USER CODE END 3 */

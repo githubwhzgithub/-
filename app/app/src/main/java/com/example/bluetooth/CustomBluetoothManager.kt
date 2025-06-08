@@ -18,6 +18,22 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.*
+import java.util.regex.Pattern
+
+// 数据类用于存储解析后的状态信息
+data class RobotStatus(
+    val pitch: Float = 0f,
+    val roll: Float = 0f,
+    val speed: Float = 0f,
+    val distance: Float = 0f,
+    val enabled: Boolean = false,
+    val visionMode: String = "OFF",
+    val visionErrorX: Float = 0f,
+    val visionErrorY: Float = 0f,
+    val lineDetected: Boolean = false,
+    val objectDetected: Boolean = false,
+    val lastUpdateTime: Long = System.currentTimeMillis()
+)
 
 class CustomBluetoothManager(private val context: Context) {
     private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
@@ -36,6 +52,10 @@ class CustomBluetoothManager(private val context: Context) {
     
     private val _receivedData = MutableStateFlow("")
     val receivedData: StateFlow<String> = _receivedData
+    
+    // 机器人状态流
+    private val _robotStatus = MutableStateFlow(RobotStatus())
+    val robotStatus: StateFlow<RobotStatus> = _robotStatus
     
     private val _pairedDevices = MutableStateFlow<List<BluetoothDevice>>(emptyList())
     val pairedDevices: StateFlow<List<BluetoothDevice>> = _pairedDevices
@@ -276,7 +296,11 @@ class CustomBluetoothManager(private val context: Context) {
                     val bytesRead = inputStream?.read(buffer) ?: 0
                     if (bytesRead > 0) {
                         val receivedMessage = String(buffer, 0, bytesRead)
-                        _receivedData.value = receivedMessage.trim()
+                        val trimmedMessage = receivedMessage.trim()
+                        _receivedData.value = trimmedMessage
+                        
+                        // 解析状态消息
+                        parseStatusMessage(trimmedMessage)
                     }
                 } catch (e: IOException) {
                     if (isConnected) {
@@ -285,6 +309,85 @@ class CustomBluetoothManager(private val context: Context) {
                     break
                 }
             }
+        }
+    }
+    
+    // 解析状态消息
+    private fun parseStatusMessage(message: String) {
+        try {
+            val lines = message.split("\n")
+            var currentStatus = _robotStatus.value
+            
+            for (line in lines) {
+                when {
+                    line.startsWith("STATUS:") -> {
+                        currentStatus = parseBasicStatus(line, currentStatus)
+                    }
+                    line.startsWith("VISION:") -> {
+                        currentStatus = parseVisionStatus(line, currentStatus)
+                    }
+                }
+            }
+            
+            _robotStatus.value = currentStatus.copy(lastUpdateTime = System.currentTimeMillis())
+        } catch (e: Exception) {
+            // 解析失败时不更新状态
+        }
+    }
+    
+    // 解析基本状态信息
+    private fun parseBasicStatus(line: String, currentStatus: RobotStatus): RobotStatus {
+        try {
+            // STATUS: Pitch=0.12 Roll=-0.05 Speed=150.00 Distance=25.3cm Enabled=1 Vision=LINE
+            val pitchPattern = Pattern.compile("Pitch=([+-]?\\d*\\.?\\d+)")
+            val rollPattern = Pattern.compile("Roll=([+-]?\\d*\\.?\\d+)")
+            val speedPattern = Pattern.compile("Speed=([+-]?\\d*\\.?\\d+)")
+            val distancePattern = Pattern.compile("Distance=([+-]?\\d*\\.?\\d+)")
+            val enabledPattern = Pattern.compile("Enabled=([01])")
+            val visionPattern = Pattern.compile("Vision=(\\w+)")
+            
+            val pitch = pitchPattern.matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() ?: currentStatus.pitch else currentStatus.pitch }
+            val roll = rollPattern.matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() ?: currentStatus.roll else currentStatus.roll }
+            val speed = speedPattern.matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() ?: currentStatus.speed else currentStatus.speed }
+            val distance = distancePattern.matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() ?: currentStatus.distance else currentStatus.distance }
+            val enabled = enabledPattern.matcher(line).let { if (it.find()) it.group(1) == "1" else currentStatus.enabled }
+            val visionMode = visionPattern.matcher(line).let { if (it.find()) it.group(1) ?: currentStatus.visionMode else currentStatus.visionMode }
+            
+            return currentStatus.copy(
+                pitch = pitch,
+                roll = roll,
+                speed = speed,
+                distance = distance,
+                enabled = enabled,
+                visionMode = visionMode
+            )
+        } catch (e: Exception) {
+            return currentStatus
+        }
+    }
+    
+    // 解析视觉状态信息
+    private fun parseVisionStatus(line: String, currentStatus: RobotStatus): RobotStatus {
+        try {
+            // VISION: ErrorX=0.123 ErrorY=-0.045 LineDetected=1 ObjectDetected=0
+            val errorXPattern = Pattern.compile("ErrorX=([+-]?\\d*\\.?\\d+)")
+            val errorYPattern = Pattern.compile("ErrorY=([+-]?\\d*\\.?\\d+)")
+            val lineDetectedPattern = Pattern.compile("LineDetected=([01])")
+            val objectDetectedPattern = Pattern.compile("ObjectDetected=([01])")
+            
+            val errorX = errorXPattern.matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() ?: currentStatus.visionErrorX else currentStatus.visionErrorX }
+            val errorY = errorYPattern.matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() ?: currentStatus.visionErrorY else currentStatus.visionErrorY }
+            val lineDetected = lineDetectedPattern.matcher(line).let { if (it.find()) it.group(1) == "1" else currentStatus.lineDetected }
+            val objectDetected = objectDetectedPattern.matcher(line).let { if (it.find()) it.group(1) == "1" else currentStatus.objectDetected }
+            
+            return currentStatus.copy(
+                visionErrorX = errorX,
+                visionErrorY = errorY,
+                lineDetected = lineDetected,
+                objectDetected = objectDetected
+            )
+        } catch (e: Exception) {
+            return currentStatus
         }
     }
     
@@ -322,6 +425,14 @@ class CustomBluetoothManager(private val context: Context) {
     suspend fun setSpeed(speed: Float) = sendCommand("SPEED $speed")
     suspend fun setAngle(angle: Float) = sendCommand("ANGLE $angle")
     suspend fun setPID(kp: Float, ki: Float, kd: Float) = sendCommand("PID $kp $ki $kd")
+    
+    /**
+     * 视觉模式控制命令 - 严格匹配STM32蓝牙协议
+     */
+    suspend fun setVisionMode(mode: Int) = sendCommand("VISION $mode")
+    suspend fun enableLineTracking() = sendCommand("LINE")
+    suspend fun enableObjectTracking() = sendCommand("TRACK")
+    suspend fun disableVision() = sendCommand("VOFF")
     
     /**
      * 检查是否连接

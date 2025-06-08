@@ -62,8 +62,7 @@ fun BalanceControlScreen(
     if (showControlPanel && connectedDevice != null) {
         ControlPanelScreen(
             bluetoothManager = bluetoothManager,
-            connectedDevice = connectedDevice,
-            onBackPressed = {
+            onBackClick = {
                 scope.launch {
                     bluetoothManager.disconnect()
                 }
@@ -106,7 +105,7 @@ fun BalanceControlScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "Balance Robot",
+                            text = "眉峰一号",
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -349,7 +348,7 @@ fun ControlButtonsSection(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Robot Control",
+                text = "Controller",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF2D3748)

@@ -18,7 +18,6 @@ Bluetooth_t Bluetooth = {
 
 // 私有函数声明
 static void Bluetooth_ExecuteCommand(const char* cmd, const char* param);
-static void Bluetooth_SendResponse(const char* response);
 
 /**
  * @brief 初始化蓝牙模块
@@ -138,11 +137,11 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
 
     if(strcmp(cmd, BT_CMD_START) == 0) {
         BalanceControl_Enable(1);
-        Bluetooth_SendResponse("Balance Started\r\n");
+        Bluetooth_SendMessage("Balance Started\r\n");
     }
     else if(strcmp(cmd, BT_CMD_STOP) == 0) {
         BalanceControl_Enable(0);
-        Bluetooth_SendResponse("Balance Stopped\r\n");
+        Bluetooth_SendMessage("Balance Stopped\r\n");
     }
     else if(strcmp(cmd, BT_CMD_FORWARD) == 0) {
         float speed = 0.2f; // 默认速度
@@ -150,7 +149,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
             speed = atof(param);
         }
         BalanceControl_SetTargetSpeed(speed);
-        Bluetooth_SendResponse("Moving Forward\r\n");
+        Bluetooth_SendMessage("Moving Forward\r\n");
     }
     else if(strcmp(cmd, BT_CMD_BACKWARD) == 0) {
         float speed = -0.2f; // 默认速度
@@ -158,15 +157,23 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
             speed = -atof(param);
         }
         BalanceControl_SetTargetSpeed(speed);
-        Bluetooth_SendResponse("Moving Backward\r\n");
+        Bluetooth_SendMessage("Moving Backward\r\n");
     }
     else if(strcmp(cmd, BT_CMD_LEFT) == 0) {
-        BalanceControl_SetTargetAngle(-5.0f);
-        Bluetooth_SendResponse("Turning Left\r\n");
+        float L_YawRate = 30.0f; // 默认角速度
+        if(param!= NULL) {
+            L_YawRate = abs(atof(param));    
+        }
+        BalanceControl_SetTargetYawRate(L_YawRate);  // 设置左转角速度目标
+        Bluetooth_SendMessage("Turning Left\r\n");
     }
     else if(strcmp(cmd, BT_CMD_RIGHT) == 0) {
-        BalanceControl_SetTargetAngle(5.0f);
-        Bluetooth_SendResponse("Turning Right\r\n");
+        float R_YawRate = -30.0f; // 默认角速度
+        if(param!= NULL) {
+            R_YawRate = -abs(atof(param));
+        }
+        BalanceControl_SetTargetYawRate(R_YawRate);   // 设置右转角速度目标
+        Bluetooth_SendMessage("Turning Right\r\n");
     }
     else if(strcmp(cmd, BT_CMD_STATUS) == 0) {
         Bluetooth_SendStatus();
@@ -175,15 +182,16 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         BalanceControl_Enable(0);
         BalanceControl_SetTargetSpeed(0);
         BalanceControl_SetTargetAngle(0);
+        BalanceControl_SetTargetYawRate(0);
         MotorEncoder_Reset();
-        Bluetooth_SendResponse("System Reset\r\n");
+        Bluetooth_SendMessage("System Reset\r\n");
     }
     else if(strcmp(cmd, BT_CMD_SPEED) == 0) {
         if(param != NULL) {
             float speed = atof(param);
             BalanceControl_SetTargetSpeed(speed);
             snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE, "Speed set to %.2f\r\n", speed);
-            Bluetooth_SendResponse((char*)Bluetooth.tx_buffer);
+            Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
         }
     }
     else if(strcmp(cmd, BT_CMD_ANGLE) == 0) {
@@ -191,7 +199,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
             float angle = atof(param);
             BalanceControl_SetTargetAngle(angle);
             snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE, "Angle set to %.2f\r\n", angle);
-            Bluetooth_SendResponse((char*)Bluetooth.tx_buffer);
+            Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
         }
     }
     else if(strcmp(cmd, BT_CMD_PID) == 0) {
@@ -203,7 +211,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
                 AnglePID.Ki = ki;
                 AnglePID.Kd = kd;
                 snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE, "PID set: Kp=%.2f Ki=%.2f Kd=%.2f\r\n", kp, ki, kd);
-                Bluetooth_SendResponse((char*)Bluetooth.tx_buffer);
+                Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
             }
         }
     }
@@ -215,31 +223,31 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
                 BalanceControl_SetVisionMode((uint8_t)mode);
                 const char* mode_names[] = {"OFF", "LINE_TRACKING", "OBJECT_TRACKING"};
                 snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE, "Vision mode set to %s\r\n", mode_names[mode]);
-                Bluetooth_SendResponse((char*)Bluetooth.tx_buffer);
+                Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
             } else {
-                Bluetooth_SendResponse("Invalid vision mode (0-2)\r\n");
+                Bluetooth_SendMessage("Invalid vision mode (0-2)\r\n");
             }
         } else {
-            Bluetooth_SendResponse("Vision mode parameter required\r\n");
+            Bluetooth_SendMessage("Vision mode parameter required\r\n");
         }
     }
     else if(strcmp(cmd, BT_CMD_LINE) == 0) {
         // 启动循迹模式
         BalanceControl_SetVisionMode(1);
-        Bluetooth_SendResponse("Line tracking mode enabled\r\n");
+        Bluetooth_SendMessage("Line tracking mode enabled\r\n");
     }
     else if(strcmp(cmd, BT_CMD_TRACK) == 0) {
         // 启动物体追踪模式
         BalanceControl_SetVisionMode(2);
-        Bluetooth_SendResponse("Object tracking mode enabled\r\n");
+        Bluetooth_SendMessage("Object tracking mode enabled\r\n");
     }
     else if(strcmp(cmd, BT_CMD_VISION_OFF) == 0) {
         // 关闭视觉模式
         BalanceControl_SetVisionMode(0);
-        Bluetooth_SendResponse("Vision mode disabled\r\n");
+        Bluetooth_SendMessage("Vision mode disabled\r\n");
     }
     else {
-        Bluetooth_SendResponse("Unknown Command\r\n");
+        Bluetooth_SendMessage("Unknown Command\r\n");
     }
 }
 
@@ -270,7 +278,7 @@ void Bluetooth_SendStatus(void)
                 "VISION: ErrorX=%.3f ErrorY=%.3f LineDetected=%d ObjectDetected=%d\r\n",
                 state->vision_error_x, state->vision_error_y,
                 K230_Vision_IsLineDetected(), K230_Vision_IsObjectDetected());
-        Bluetooth_SendResponse((char*)Bluetooth.tx_buffer);
+        Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
     }
 }
 
@@ -309,14 +317,6 @@ void Bluetooth_SendInt(const char* name, int value)
     Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
 }
 
-/**
- * @brief 发送响应
- * @param response: 响应字符串
- */
-static void Bluetooth_SendResponse(const char* response)
-{
-    Bluetooth_SendMessage(response);
-}
 
 /**
  * @brief 获取蓝牙状态

@@ -52,6 +52,7 @@ BalanceState_t BalanceState = {
     .right_speed = 0.0f,
     .target_speed = 0.0f,
     .target_angle = BALANCE_TARGET_ANGLE,
+    .target_yaw_rate = 0.0f,
     .distance_front = 0.0f,
     .balance_enabled = 0,
     .obstacle_detected = 0,
@@ -153,10 +154,6 @@ void BalanceControl_Update(void)
     uint32_t current_time = HAL_GetTick();
     float dt = (current_time - last_control_time) / 1000.0f; // 转换为秒
 
-    // 控制频率限制
-    if(dt < (CONTROL_PERIOD_MS / 1000.0f)) {
-        return;
-    }
 
     last_control_time = current_time;
 
@@ -218,8 +215,8 @@ void BalanceControl_Update(void)
         if(turn_output > TURN_PID_MAX_OUTPUT) turn_output = TURN_PID_MAX_OUTPUT;
         if(turn_output < -TURN_PID_MAX_OUTPUT) turn_output = -TURN_PID_MAX_OUTPUT;
     } else {
-        // 非视觉模式下，基于Z轴角速度进行转向控制（保持直行）
-        TurnPID.setpoint = 0.0f; // 目标Z轴角速度为0（直行）
+        // 非视觉模式下，基于Z轴角速度进行转向控制
+        TurnPID.setpoint = BalanceState.target_yaw_rate; // 使用目标偏航角速度
         turn_output = BalanceControl_PID_Update(&TurnPID, BalanceState.yaw_rate, dt);
     }
 
@@ -269,6 +266,15 @@ void BalanceControl_SetTargetSpeed(float speed)
 void BalanceControl_SetTargetAngle(float angle)
 {
     BalanceState.target_angle = angle;
+}
+
+/**
+ * @brief 设置目标偏航角速度
+ * @param yaw_rate: 目标偏航角速度 (度/秒)
+ */
+void BalanceControl_SetTargetYawRate(float yaw_rate)
+{
+    BalanceState.target_yaw_rate = yaw_rate;
 }
 
 /**
