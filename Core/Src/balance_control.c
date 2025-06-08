@@ -47,6 +47,7 @@ BalanceState_t BalanceState = {
     .roll = 0.0f,
     .pitch_rate = 0.0f,
     .roll_rate = 0.0f,
+    .yaw_rate = 0.0f,
     .left_speed = 0.0f,
     .right_speed = 0.0f,
     .target_speed = 0.0f,
@@ -166,6 +167,7 @@ void BalanceControl_Update(void)
     if(MPU_Get_Gyroscope(&gx, &gy, &gz) == 0) {
         BalanceState.pitch_rate = gy;
         BalanceState.roll_rate = gx;
+        BalanceState.yaw_rate = gz;  // Z轴角速度用于转向控制
     }
 
     // 更新编码器数据
@@ -205,14 +207,21 @@ void BalanceControl_Update(void)
     AnglePID.setpoint = BalanceState.target_angle + speed_output;
     float angle_output = BalanceControl_PID_Update(&AnglePID, BalanceState.pitch, dt);
 
-    // 转向控制 (基于横滚角和视觉误差)
-    float turn_setpoint = 0.0f;
+    // 转向控制
+    float turn_output = 0.0f;
     if(BalanceState.vision_mode > 0) {
-        // 视觉模式下使用视觉误差作为转向目标
-        turn_setpoint = BalanceState.vision_error_x;
+        // 视觉模式下直接使用视觉误差进行转向控制
+        // vision_error_x范围为[-1.0, 1.0]，需要转换为合适的转向输出
+        turn_output = BalanceState.vision_error_x * TURN_PID_KP;
+        
+        // 限制转向输出范围
+        if(turn_output > TURN_PID_MAX_OUTPUT) turn_output = TURN_PID_MAX_OUTPUT;
+        if(turn_output < -TURN_PID_MAX_OUTPUT) turn_output = -TURN_PID_MAX_OUTPUT;
+    } else {
+        // 非视觉模式下，基于Z轴角速度进行转向控制（保持直行）
+        TurnPID.setpoint = 0.0f; // 目标Z轴角速度为0（直行）
+        turn_output = BalanceControl_PID_Update(&TurnPID, BalanceState.yaw_rate, dt);
     }
-    TurnPID.setpoint = turn_setpoint;
-    float turn_output = BalanceControl_PID_Update(&TurnPID, BalanceState.roll, dt);
 
     // 计算左右电机输出
     int16_t left_motor_output = (int16_t)(angle_output - turn_output);
@@ -281,14 +290,7 @@ void BalanceControl_EmergencyStop(void)
  */
 void BalanceControl_ObstacleAvoidance(void)
 {
-    // 启动超声波测距
-    if(Ultrasonic_GetState() == ULTRASONIC_IDLE) {
-        Ultrasonic_StartMeasurement();
-    }
-
-    // 检查前方障碍物
-    if(BalanceState.distance_front < MIN_OBSTACLE_DISTANCE &&
-       BalanceState.distance_front > MIN_DISTANCE) {
+    if(BalanceState.distance_front < MIN_OBSTACLE_DISTANCE) {
         BalanceState.obstacle_detected = 1;
 
         // 如果正在前进，则停止
@@ -322,13 +324,13 @@ void BalanceControl_SetVisionMode(uint8_t mode)
     BalanceState.vision_error_y = 0.0f;
     
     // 设置K230视觉模块的工作模式
-    /*if(mode == 1) {
-        K230_Vision_SetMode(K230_MODE_LINE_TRACKING);
+    if(mode == 1) {
+        K230_SetMode(K230_MODE_LINE_TRACK);
     } else if(mode == 2) {
-        K230_Vision_SetMode(K230_MODE_OBJECT_TRACKING);
+        K230_SetMode(K230_MODE_OBJECT_TRACK);
     } else {
-        K230_Vision_SetMode(K230_MODE_IDLE);
-    }*/
+        K230_SetMode(K230_MODE_IDLE);
+    }
 }
 
 /**
@@ -348,37 +350,58 @@ void BalanceControl_VisionUpdate(void)
 
 /**
  * @brief 循迹控制
- * @note 根据线条位置调整转向
+ * @note 根据线条位置调整转向和速度
  */
 void BalanceControl_LineTracking(void)
 {
-    /*K230_LineTrack_t* line_data = K230_Vision_GetLineTrackingData();
+    K230_Vision_t* vision_data = K230_GetVisionData();
     
     if(K230_Vision_IsLineDetected()) {
         // 计算线条中心相对于图像中心的偏移
-        float image_center_x = 160.0f; // 假设图像宽度为320像素
-        float line_center_x = line_data->line_x + line_data->line_w / 2.0f;
+        float image_center_x = 320.0f; // OpenMV图像宽度为640像素，中心为320
+        float line_center_x = (float)vision_data->line_track.line_x;
         
         // 计算X轴误差 (转向控制)
-        BalanceState.vision_error_x = (line_center_x - image_center_x) / image_center_x;
+        float raw_error_x = (line_center_x - image_center_x) / image_center_x;
+        
+        // 对转向误差进行低通滤波，减少抖动
+        static float filtered_error_x = 0.0f;
+        float filter_alpha = 0.7f; // 滤波系数，越小越平滑
+        filtered_error_x = filter_alpha * raw_error_x + (1.0f - filter_alpha) * filtered_error_x;
+        
+        BalanceState.vision_error_x = filtered_error_x;
         
         // 限制误差范围
         if(BalanceState.vision_error_x > 1.0f) BalanceState.vision_error_x = 1.0f;
         if(BalanceState.vision_error_x < -1.0f) BalanceState.vision_error_x = -1.0f;
         
-        // 根据线条宽度调整速度 (线条越宽说明越近，速度可以快一些)
-        float speed_factor = line_data->w / 100.0f; // 归一化线条宽度
-        if(speed_factor > 1.0f) speed_factor = 1.0f;
-        if(speed_factor < 0.3f) speed_factor = 0.3f; // 最小速度因子
+        // 使用OpenMV发送的速度因子（在line_angle字段中）
+        // OpenMV已经根据线条角度、置信度等因素计算了最优速度
+        float speed_factor = (float)vision_data->line_track.line_angle / 100.0f; // 转换为0.0-1.0范围
         
-        // 设置前进速度
-        BalanceState.target_speed = 0.2f * speed_factor; // 基础速度0.2m/s
+        // 限制速度因子范围
+        if(speed_factor > 1.0f) speed_factor = 1.0f;
+        if(speed_factor < 0.3f) speed_factor = 0.3f;
+        
+        // 根据转向误差进一步调整速度（转向越大，速度越慢）
+        float turn_speed_factor = 1.0f - 0.5f * fabs(BalanceState.vision_error_x);
+        if(turn_speed_factor < 0.5f) turn_speed_factor = 0.5f;
+        
+        // 设置前进速度（基础速度 * OpenMV速度因子 * 转向速度因子）
+        BalanceState.target_speed = 0.25f * speed_factor * turn_speed_factor;
         
     } else {
-        // 没有检测到线条，停止前进
-        BalanceState.target_speed = 0.0f;
-        BalanceState.vision_error_x = 0.0f;
-    } */
+        // 没有检测到线条，逐渐减速停止
+        static float stop_speed_factor = 1.0f;
+        stop_speed_factor *= 0.9f; // 逐渐减速
+        if(stop_speed_factor < 0.1f) {
+            BalanceState.target_speed = 0.0f;
+            BalanceState.vision_error_x = 0.0f;
+            stop_speed_factor = 1.0f; // 重置减速因子
+        } else {
+            BalanceState.target_speed *= stop_speed_factor;
+        }
+    }
 }
 
 /**

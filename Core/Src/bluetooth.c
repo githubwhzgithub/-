@@ -67,13 +67,7 @@ void Bluetooth_Update(void)
         Bluetooth_ProcessCommand();
         Bluetooth.command_ready = 0;
     }
-
-    // 定期发送状态信息 (每2秒)
-    static uint32_t last_status_time = 0;
-    if(current_time - last_status_time > 2000 && Bluetooth.connected) {
-        Bluetooth_SendStatus();
-        last_status_time = current_time;
-    }
+    
 }
 
 /**
@@ -268,7 +262,7 @@ void Bluetooth_SendStatus(void)
             state->distance_front,
             state->balance_enabled,
             vision_mode_name);
-    Bluetooth_SendResponse((char*)Bluetooth.tx_buffer);
+    Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
     
     // 如果视觉模式开启，发送视觉数据
     if(state->vision_mode > 0) {
@@ -290,17 +284,7 @@ void Bluetooth_SendMessage(const char* message)
         return;
     }
     
-    // 检查UART是否忙碌
-    if(HAL_UART_GetState(BT_UART_HANDLE) == HAL_UART_STATE_BUSY_TX) {
-        // 如果正在发送，使用阻塞方式发送
-        HAL_UART_Transmit(BT_UART_HANDLE, (uint8_t*)message, strlen(message), 1000);
-    } else {
-        // 使用DMA发送
-        if(HAL_UART_Transmit_DMA(BT_UART_HANDLE, (uint8_t*)message, strlen(message)) != HAL_OK) {
-            // DMA发送失败，使用阻塞方式
-            HAL_UART_Transmit(BT_UART_HANDLE, (uint8_t*)message, strlen(message), 1000);
-        }
-    }
+    HAL_UART_Transmit_DMA(BT_UART_HANDLE, (uint8_t*)message, strlen(message));
 }
 
 /**

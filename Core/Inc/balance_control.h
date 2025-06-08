@@ -49,6 +49,7 @@ typedef struct {
     float roll;                 // 横滚角 - 左右倾斜角度（度），正值表示右倾
     float pitch_rate;           // 俯仰角速度 - 前后倾斜的角速度（度/秒）
     float roll_rate;            // 横滚角速度 - 左右倾斜的角速度（度/秒）
+    float yaw_rate;             // 偏航角速度 - Z轴角速度（度/秒），用于转向控制
     float left_speed;           // 左轮速度 - 左电机的实际转速（编码器计数/秒）
     float right_speed;          // 右轮速度 - 右电机的实际转速（编码器计数/秒）
     float target_speed;         // 目标速度 - 期望的前进后退速度
@@ -69,8 +70,6 @@ typedef struct {
 #define BALANCE_TARGET_ANGLE    0.0f    // 目标平衡角度（度）- 平衡车的理想直立角度
 #define MAX_TILT_ANGLE         45.0f    // 最大倾斜角度（度）- 超过此角度触发保护
 #define MIN_OBSTACLE_DISTANCE  20.0f    // 最小障碍物距离（厘米）- 触发避障的距离阈值
-#define CONTROL_FREQUENCY      100      // 控制频率（Hz）- 控制算法的执行频率
-#define CONTROL_PERIOD_MS      10       // 控制周期（毫秒）- 每次控制更新的时间间隔
 
 /**
  * @brief PID控制器参数定义

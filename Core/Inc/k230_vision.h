@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 /* K230视觉模块通讯协议定义 */
-#define K230_BUF_LEN_MAX           (50)    // 接收缓冲区最大长度
+#define K230_BUF_LEN_MAX           (100)    // 接收缓冲区最大长度
 #define K230_HEAD                  (0x24)  // 协议头 '$'
 #define K230_TAIL                  (0x23)  // 协议尾 '#'
 

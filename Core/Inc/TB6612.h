@@ -3,6 +3,7 @@
 
 #include "main.h"
 #include "tim.h"
+#include "gpio.h"
 
 // TB6612电机驱动模块定义
 // 电机A控制引脚

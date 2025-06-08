@@ -17,11 +17,11 @@ static uint8_t k230_data_length = 0;              // 数据长度
 
 static K230_Vision_t k230_vision_data;            // 视觉数据结构
 
-/* 图像中心坐标定义 (假设320x240分辨率) */
-#define IMAGE_CENTER_X  160
-#define IMAGE_CENTER_Y  120
-#define IMAGE_WIDTH     320
-#define IMAGE_HEIGHT    240
+/* 图像中心坐标定义 (假设640*480分辨率) */
+#define IMAGE_CENTER_X  320
+#define IMAGE_CENTER_Y  240
+#define IMAGE_WIDTH     640
+#define IMAGE_HEIGHT    480
 
 /* 私有函数声明 */
 static void K230_ParseData(uint8_t *data_buf, uint8_t length);
@@ -278,28 +278,37 @@ static void K230_ParseData(uint8_t *data_buf, uint8_t length)
     }
     
     // 解析字段
-    uint8_t data_index = 1;
-    uint8_t field_index[K230_BUF_LEN_MAX] = {0};
+    uint8_t data_index = 0;
+    uint8_t field_start[K230_BUF_LEN_MAX] = {1}; // 第一个字段从索引1开始
     int values[K230_BUF_LEN_MAX] = {0};
     
-    // 查找逗号分隔符
+    // 查找逗号分隔符，记录每个字段的起始位置
     for (int i = 1; i < length-1; i++)
     {
         if (data_buf[i] == ',')
         {
             data_buf[i] = 0;  // 替换为字符串结束符
-            field_index[data_index] = i;
             data_index++;
+            if (data_index < K230_BUF_LEN_MAX)
+            {
+                field_start[data_index] = i + 1;
+            }
         }
     }
+    data_index++; // 包含最后一个字段
     
     // 转换字符串为数值
-    for (int i = 0; i < data_index; i++)
+    for (int i = 0; i < data_index && i < K230_BUF_LEN_MAX; i++)
     {
-        values[i] = K230_CharToInt((char*)data_buf + field_index[i] + 1);
+        values[i] = K230_CharToInt((char*)data_buf + field_start[i]);
     }
     
     // 检查数据长度
+    if (data_index < 2)
+    {
+        return;
+    }
+    
     uint8_t pto_len = values[0];
     if (pto_len != length)
     {
@@ -310,33 +319,30 @@ static void K230_ParseData(uint8_t *data_buf, uint8_t length)
     uint8_t func_id = values[1];
     uint32_t current_time = HAL_GetTick();
     
-    if (func_id == K230_MODE_LINE_TRACK)
+    // OpenMV使用颜色检测协议(ID=1)发送循迹数据
+    // 数据格式: $length,1,center_x,angle,control_output,found#
+    // 其中angle作为y坐标，control_output作为宽度，found作为置信度
+    if (func_id == K230_MODE_LINE_TRACKING && data_index >= 6)
     {
-        // 循迹数据格式: $length,1,x,y,w,h,angle#
-        if (data_index >= 6)
-        {
-            k230_vision_data.line_track.line_x = values[2];
-            k230_vision_data.line_track.line_y = values[3];
-            // values[4] 和 values[5] 是宽度和高度，可以用来判断线条质量
-            k230_vision_data.line_track.line_angle = values[6] - 90;  // 转换为-90到90度
-            k230_vision_data.line_track.line_detected = 1;
-            k230_vision_data.line_track.valid = 1;
-            k230_vision_data.line_track.last_update = current_time;
-        }
+        k230_vision_data.line_track.line_x = values[2];        // 线条中心X坐标
+        k230_vision_data.line_track.line_y = values[3];        // 线条角度(作为Y坐标)
+        k230_vision_data.line_track.line_angle = values[3];    // 线条角度
+        // values[4] 是控制输出的绝对值*100
+        // values[5] 是found标志
+        k230_vision_data.line_track.line_detected = (values[5] > 0) ? 1 : 0;
+        k230_vision_data.line_track.valid = 1;
+        k230_vision_data.line_track.last_update = current_time;
     }
-    else if (func_id == K230_MODE_OBJECT_TRACK)
+    else if (func_id == K230_MODE_OBJECT_TRACKING && data_index >= 6)
     {
         // 物体追踪数据格式: $length,15,x,y,w,h#
-        if (data_index >= 6)
-        {
-            k230_vision_data.object_track.obj_x = values[2];
-            k230_vision_data.object_track.obj_y = values[3];
-            k230_vision_data.object_track.obj_w = values[4];
-            k230_vision_data.object_track.obj_h = values[5];
-            k230_vision_data.object_track.obj_detected = 1;
-            k230_vision_data.object_track.valid = 1;
-            k230_vision_data.object_track.last_update = current_time;
-        }
+        k230_vision_data.object_track.obj_x = values[2];
+        k230_vision_data.object_track.obj_y = values[3];
+        k230_vision_data.object_track.obj_w = values[4];
+        k230_vision_data.object_track.obj_h = values[5];
+        k230_vision_data.object_track.obj_detected = 1;
+        k230_vision_data.object_track.valid = 1;
+        k230_vision_data.object_track.last_update = current_time;
     }
 }
 
