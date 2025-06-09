@@ -12,7 +12,8 @@ PID_Controller_t AnglePID = {
     .output = 0.0f,
     .max_output = ANGLE_PID_MAX_OUTPUT,
     .min_output = -ANGLE_PID_MAX_OUTPUT,
-    .max_integral = ANGLE_PID_MAX_INTEGRAL
+    .max_integral = ANGLE_PID_MAX_INTEGRAL,
+    .filtered_derivative = 0.0f
 };
 
 PID_Controller_t SpeedPID = {
@@ -25,7 +26,8 @@ PID_Controller_t SpeedPID = {
     .output = 0.0f,
     .max_output = SPEED_PID_MAX_OUTPUT,
     .min_output = -SPEED_PID_MAX_OUTPUT,
-    .max_integral = SPEED_PID_MAX_INTEGRAL
+    .max_integral = SPEED_PID_MAX_INTEGRAL,
+    .filtered_derivative = 0.0f
 };
 
 PID_Controller_t TurnPID = {
@@ -38,7 +40,8 @@ PID_Controller_t TurnPID = {
     .output = 0.0f,
     .max_output = TURN_PID_MAX_OUTPUT,
     .min_output = -TURN_PID_MAX_OUTPUT,
-    .max_integral = TURN_PID_MAX_INTEGRAL
+    .max_integral = TURN_PID_MAX_INTEGRAL,
+    .filtered_derivative = 0.0f
 };
 
 // 平衡车状态实例
@@ -54,7 +57,7 @@ BalanceState_t BalanceState = {
     .target_angle = BALANCE_TARGET_ANGLE,
     .target_yaw_rate = 0.0f,
     .distance_front = 0.0f,
-    .balance_enabled = 0,
+    .balance_enabled = 1,
     .obstacle_detected = 0,
     .vision_mode = 0,
     .vision_error_x = 0.0f,
@@ -95,32 +98,66 @@ void BalanceControl_Init(void)
  */
 float BalanceControl_PID_Update(PID_Controller_t* pid, float current_value, float dt)
 {
+    // 参数有效性检查
+    if(pid == NULL || dt <= 0.0f || dt > 1.0f) {
+        return pid ? pid->output : 0.0f;
+    }
+
     // 计算误差
     float error = pid->setpoint - current_value;
+    
+    // 死区处理 - 减少小误差时的抖动
+    const float deadzone = 0.01f;
+    if(fabsf(error) < deadzone) {
+        error = 0.0f;
+    }
 
     // 比例项
     float proportional = pid->Kp * error;
 
-    // 积分项
-    pid->integral += error * dt;
-
-    // 积分限幅
-    if(pid->integral > pid->max_integral) {
-        pid->integral = pid->max_integral;
-    } else if(pid->integral < -pid->max_integral) {
-        pid->integral = -pid->max_integral;
+    // 积分项计算（改进的抗饱和机制）
+    float integral_term = pid->Ki * pid->integral;
+    float pre_output = proportional + integral_term;
+    
+    // 只有在输出未饱和时才累积积分
+    int output_saturated = (pre_output > pid->max_output) || (pre_output < pid->min_output);
+    int integral_same_sign = (error * pid->integral) > 0.0f;
+    
+    if(!output_saturated || !integral_same_sign) {
+        pid->integral += error * dt;
+        
+        // 积分限幅
+        if(pid->integral > pid->max_integral) {
+            pid->integral = pid->max_integral;
+        } else if(pid->integral < -pid->max_integral) {
+            pid->integral = -pid->max_integral;
+        }
     }
+    
+    integral_term = pid->Ki * pid->integral;
 
-    float integral = pid->Ki * pid->integral;
+    // 微分项计算（带低通滤波减少噪声）
+     float derivative = 0.0f;
+     if(pid->Kd > 0.0f) {
+         float raw_derivative = (error - pid->last_error) / dt;
+         
+         // 一阶低通滤波器，截止频率约为采样频率的1/10
+         const float alpha = 0.1f;  // 滤波系数
+         pid->filtered_derivative = alpha * raw_derivative + (1.0f - alpha) * pid->filtered_derivative;
+         
+         derivative = pid->Kd * pid->filtered_derivative;
+         
+         // 微分项限幅，防止噪声导致的过大输出
+         const float max_derivative = pid->max_output * 0.3f;
+         if(derivative > max_derivative) {
+             derivative = max_derivative;
+         } else if(derivative < -max_derivative) {
+             derivative = -max_derivative;
+         }
+     }
 
-    // 微分项
-    float derivative = 0.0f;
-    if(dt > 0) {
-        derivative = pid->Kd * (error - pid->last_error) / dt;
-    }
-
-    // 计算输出
-    pid->output = proportional + integral + derivative;
+    // 计算最终输出
+    pid->output = proportional + integral_term + derivative;
 
     // 输出限幅
     if(pid->output > pid->max_output) {
@@ -129,7 +166,7 @@ float BalanceControl_PID_Update(PID_Controller_t* pid, float current_value, floa
         pid->output = pid->min_output;
     }
 
-    // 保存当前误差
+    // 保存当前误差用于下次微分计算
     pid->last_error = error;
 
     return pid->output;
@@ -141,9 +178,12 @@ float BalanceControl_PID_Update(PID_Controller_t* pid, float current_value, floa
  */
 void BalanceControl_PID_Reset(PID_Controller_t* pid)
 {
-    pid->integral = 0.0f;
-    pid->last_error = 0.0f;
-    pid->output = 0.0f;
+    if(pid != NULL) {
+        pid->integral = 0.0f;
+        pid->last_error = 0.0f;
+        pid->output = 0.0f;
+        pid->filtered_derivative = 0.0f;
+    }
 }
 
 /**
@@ -181,9 +221,9 @@ void BalanceControl_Update(void)
     // 视觉控制更新
     BalanceControl_VisionUpdate();
 
-    // 检查是否需要紧急停止
-    if(fabs(BalanceState.pitch) > MAX_TILT_ANGLE ||
-       fabs(BalanceState.roll) > MAX_TILT_ANGLE ||
+    // 检查是否需要紧急停止 - 主要检查roll值（平衡控制轴）
+    if(fabs(BalanceState.roll) > MAX_TILT_ANGLE ||
+       fabs(BalanceState.pitch) > MAX_TILT_ANGLE ||
        BalanceState.obstacle_detected) {
         BalanceControl_EmergencyStop();
         return;
@@ -195,14 +235,14 @@ void BalanceControl_Update(void)
         return;
     }
 
+    // 角度环控制 - 使用roll值进行平衡控制
+    AnglePID.setpoint = BalanceState.target_angle ;
+    float angle_output = BalanceControl_PID_Update(&AnglePID, BalanceState.roll, dt);
+
     // 速度环控制
     float average_speed = (BalanceState.left_speed + BalanceState.right_speed) / 2.0f;
     SpeedPID.setpoint = BalanceState.target_speed;
     float speed_output = BalanceControl_PID_Update(&SpeedPID, average_speed, dt);
-
-    // 角度环控制
-    AnglePID.setpoint = BalanceState.target_angle + speed_output;
-    float angle_output = BalanceControl_PID_Update(&AnglePID, BalanceState.pitch, dt);
 
     // 转向控制
     float turn_output = 0.0f;
@@ -221,8 +261,8 @@ void BalanceControl_Update(void)
     }
 
     // 计算左右电机输出
-    int16_t left_motor_output = (int16_t)(angle_output - turn_output);
-    int16_t right_motor_output = (int16_t)(angle_output + turn_output);
+    int16_t left_motor_output = (int16_t)(speed_output+angle_output - turn_output);
+    int16_t right_motor_output = (int16_t)(speed_output+angle_output + turn_output);
 
     // 限制电机输出范围
     if(left_motor_output > 1000) left_motor_output = 1000;

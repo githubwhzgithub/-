@@ -34,9 +34,9 @@ balance\balance_control.o: ../Core/Inc/mpu6050.h
 balance\balance_control.o: ../Core/Inc/i2c.h
 balance\balance_control.o: ../Core/Inc/TB6612.h
 balance\balance_control.o: ../Core/Inc/tim.h
+balance\balance_control.o: ../Core/Inc/gpio.h
 balance\balance_control.o: ../Core/Inc/motorencoder.h
 balance\balance_control.o: ../Core/Inc/ultrasonic.h
-balance\balance_control.o: ../Core/Inc/gpio.h
 balance\balance_control.o: ../Core/Inc/usart.h
 balance\balance_control.o: ../Core/Inc/k230_vision.h
 balance\balance_control.o: D:\Program Files\Keil_v5\ARM\ARMCC\Bin\..\include\string.h

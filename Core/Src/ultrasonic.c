@@ -34,38 +34,6 @@ static void Ultrasonic_DelayUs(uint32_t us)
 }
 
 /**
- * @brief 中值滤波函数
- * @param new_value: 新的测量值
- * @return 滤波后的值
- */
-static float Ultrasonic_MedianFilter(float new_value)
-{
-    // 将新值添加到缓冲区
-    Ultrasonic.distance_buffer[Ultrasonic.buffer_index] = new_value;
-    Ultrasonic.buffer_index = (Ultrasonic.buffer_index + 1) % 5;
-    
-    // 复制缓冲区用于排序
-    float temp_buffer[5];
-    for(int i = 0; i < 5; i++) {
-        temp_buffer[i] = Ultrasonic.distance_buffer[i];
-    }
-    
-    // 简单冒泡排序
-    for(int i = 0; i < 4; i++) {
-        for(int j = 0; j < 4 - i; j++) {
-            if(temp_buffer[j] > temp_buffer[j + 1]) {
-                float temp = temp_buffer[j];
-                temp_buffer[j] = temp_buffer[j + 1];
-                temp_buffer[j + 1] = temp;
-            }
-        }
-    }
-    
-    // 返回中值
-    return temp_buffer[2];
-}
-
-/**
  * @brief 初始化超声波模块
  */
 void Ultrasonic_Init(void)

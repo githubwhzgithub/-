@@ -28,16 +28,17 @@
  * @note  实现标准的PID控制算法，包含比例、积分、微分三个控制环节
  */
 typedef struct {
-    float Kp;           // 比例系数 - 控制响应速度，值越大响应越快
-    float Ki;           // 积分系数 - 消除稳态误差，值越大积分作用越强
-    float Kd;           // 微分系数 - 预测误差变化，提高系统稳定性
-    float setpoint;     // 目标值 - PID控制器的期望输出值
-    float integral;     // 积分累积 - 历史误差的累积值
-    float last_error;   // 上次误差 - 用于计算微分项
-    float output;       // 输出值 - PID控制器的最终输出
-    float max_output;   // 最大输出限制 - 防止输出过大
-    float min_output;   // 最小输出限制 - 防止输出过小
-    float max_integral; // 积分限幅 - 防止积分饱和
+    float Kp;                    // 比例系数 - 控制响应速度，值越大响应越快
+    float Ki;                    // 积分系数 - 消除稳态误差，值越大积分作用越强
+    float Kd;                    // 微分系数 - 预测误差变化，提高系统稳定性
+    float setpoint;              // 目标值 - PID控制器的期望输出值
+    float integral;              // 积分累积 - 历史误差的累积值
+    float last_error;            // 上次误差 - 用于计算微分项
+    float output;                // 输出值 - PID控制器的最终输出
+    float max_output;            // 最大输出限制 - 防止输出过大
+    float min_output;            // 最小输出限制 - 防止输出过小
+    float max_integral;          // 积分限幅 - 防止积分饱和
+    float filtered_derivative;   // 微分项滤波器状态 - 用于低通滤波减少噪声
 } PID_Controller_t;
 
 /**
@@ -45,8 +46,8 @@ typedef struct {
  * @note  存储平衡车的所有状态信息，包括传感器数据、控制目标和系统标志
  */
 typedef struct {
-    float pitch;                // 俯仰角 - 前后倾斜角度（度），正值表示前倾
-    float roll;                 // 横滚角 - 左右倾斜角度（度），正值表示右倾
+    float pitch;                // 俯仰角 - 前后倾斜角度（度），正值表示前倾（辅助监控）
+    float roll;                 // 横滚角 - 左右倾斜角度（度），正值表示右倾（主平衡控制轴）
     float pitch_rate;           // 俯仰角速度 - 前后倾斜的角速度（度/秒）
     float roll_rate;            // 横滚角速度 - 左右倾斜的角速度（度/秒）
     float yaw_rate;             // 偏航角速度 - Z轴角速度（度/秒），用于转向控制
@@ -70,7 +71,7 @@ typedef struct {
  */
 #define BALANCE_TARGET_ANGLE    0.0f    // 目标平衡角度（度）- 平衡车的理想直立角度
 #define MAX_TILT_ANGLE         45.0f    // 最大倾斜角度（度）- 超过此角度触发保护
-#define MIN_OBSTACLE_DISTANCE  20.0f    // 最小障碍物距离（厘米）- 触发避障的距离阈值
+#define MIN_OBSTACLE_DISTANCE  10.0f    // 最小障碍物距离（厘米）- 触发避障的距离阈值
 
 /**
  * @brief PID控制器参数定义
@@ -78,11 +79,11 @@ typedef struct {
  */
 
 /* 角度环PID参数 - 控制平衡车的俯仰角度，维持直立状态 */
-#define ANGLE_PID_KP           80.0f    // 角度比例系数 - 主要控制力，影响平衡响应速度
+#define ANGLE_PID_KP           15.0f    // 角度比例系数 - 主要控制力，影响平衡响应速度
 #define ANGLE_PID_KI           0.5f     // 角度积分系数 - 消除静态误差，防止长期偏移
 #define ANGLE_PID_KD           2.0f     // 角度微分系数 - 阻尼作用，减少震荡
-#define ANGLE_PID_MAX_OUTPUT   1000.0f  // 角度PID最大输出 - 限制电机最大驱动力
-#define ANGLE_PID_MAX_INTEGRAL 500.0f   // 角度PID积分限幅 - 防止积分饱和
+#define ANGLE_PID_MAX_OUTPUT   200.0f  // 角度PID最大输出 - 限制电机最大驱动力
+#define ANGLE_PID_MAX_INTEGRAL 300.0f   // 角度PID积分限幅 - 防止积分饱和
 
 /* 速度环PID参数 - 控制平衡车的前进后退速度 */
 #define SPEED_PID_KP           5.0f     // 速度比例系数 - 速度跟踪响应强度

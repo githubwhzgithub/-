@@ -41,6 +41,7 @@
 #include "balance_control.h" // 平衡控制算法模块
 #include "bluetooth.h"    // 蓝牙通信模块
 #include "k230_vision.h"  // K230视觉模块
+#include "motor_test.h"   // 电机测试模块
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -59,7 +60,7 @@
 #define ENCODER_UPDATE_INTERVAL 10    // 编码器更新间隔(毫秒) - 获取电机速度反馈
 #define ULTRASONIC_UPDATE_INTERVAL 50 // 超声波更新间隔(毫秒) - 障碍物检测
 #define BLUETOOTH_UPDATE_INTERVAL 20  // 蓝牙更新间隔(毫秒) - 处理遥控指令
-#define STATUS_SEND_INTERVAL 2000     // 状态发送间隔(毫秒) - 调试信息输出
+#define STATUS_SEND_INTERVAL 3000     // 状态发送间隔(毫秒) - 调试信息输出
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -103,19 +104,22 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart); // 串口接收完成�
  */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
+  static uint8_t bt_rx_byte;  // 蓝牙接收字节缓冲
+  static uint8_t vision_rx_byte;  // 视觉模块接收字节缓冲
+  
   if(huart->Instance == USART3)
   {
     // 蓝牙数据接收处理 (HC-05使用UART3: PB10-TX, PB11-RX)
-    Bluetooth_HandleRxData(Bluetooth.rx_buffer[0]);
+    Bluetooth_HandleRxData(bt_rx_byte);
     // 重新启动接收 - 保持持续接收状态
-    HAL_UART_Receive_IT(&huart3, &Bluetooth.rx_buffer[0], 1);
+    HAL_UART_Receive_IT(&huart3, &bt_rx_byte, 1);
   }
   else if(huart->Instance == USART2)
   {
     // K230视觉模块数据接收处理 (PA2-TX, PA3-RX)
-    K230_Vision_ReceiveData(rx_buffer[0]);
+    K230_Vision_ReceiveData(vision_rx_byte);
     // 重新启动接收 - 保持持续接收状态
-    HAL_UART_Receive_IT(&huart2, rx_buffer, 1);
+    HAL_UART_Receive_IT(&huart2, &vision_rx_byte, 1);
   }
 }
 /* USER CODE END 0 */
@@ -217,6 +221,23 @@ int main(void)
   Bluetooth_SendMessage((char*)init_msg);
   HAL_Delay(100);
 
+  /*
+  // 初始化电机测试模块
+  MotorTest_Init();            // 初始化电机测试功能
+  sprintf((char*)init_msg, "Motor Test Module initialized!\r\n");
+  Bluetooth_SendMessage((char*)init_msg);
+  while(1){
+    MotorTest_LeftForward(100);
+    HAL_Delay(1000);
+    MotorTest_LeftBackward(100);
+    HAL_Delay(1000);
+    MotorTest_RightForward(100);
+    HAL_Delay(1000);
+    MotorTest_RightBackward(100);
+    HAL_Delay(1000);
+  }
+  HAL_Delay(100);*/
+
   // 系统初始化完成标志
   system_initialized = 1;      // 设置系统初始化完成标志，允许主循环开始工作
   sprintf((char*)init_msg, "\r\n=== Balance Robot System Ready ===\r\n");
@@ -250,10 +271,13 @@ int main(void)
     /* 任务调度系统 - 基于时间片的多任务调度 */
 
     // K230视觉数据更新任务 (每20毫秒) - 视觉处理
-    if (current_time - last_vision_update >= 20)
-    {
-      last_vision_update = current_time;
-      K230_Vision_Update();              // 更新K230视觉模块数据
+    if (BalanceState.vision_mode != 0)
+    { 
+      if(current_time - last_vision_update >= 20){
+        last_vision_update = current_time;
+        K230_Vision_Update();
+      }
+                    // 更新K230视觉模块数据
     }
 
     // 平衡控制更新任务 (每5毫秒) - 最高优先级
@@ -287,7 +311,7 @@ int main(void)
       Bluetooth_Update();                // 处理蓝牙接收的控制指令
     }
 
-    // 状态信息发送任务 (每1秒) - 调试和监控
+    // 状态信息发送任务 (每3秒) - 调试和监控
     if (current_time - last_status_send >= STATUS_SEND_INTERVAL)
     {
       last_status_send = current_time;

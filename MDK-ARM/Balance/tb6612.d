@@ -31,3 +31,4 @@ balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim.h
 balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim_ex.h
 balance\tb6612.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_uart.h
 balance\tb6612.o: ../Core/Inc/tim.h
+balance\tb6612.o: ../Core/Inc/gpio.h

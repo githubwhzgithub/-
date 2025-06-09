@@ -7,16 +7,16 @@
 
 // TB6612电机驱动模块定义
 // 电机A控制引脚
-#define MOTOR_A_IN1_PORT    GPIOA
-#define MOTOR_A_IN1_PIN     GPIO_PIN_0
-#define MOTOR_A_IN2_PORT    GPIOA
-#define MOTOR_A_IN2_PIN     GPIO_PIN_1
+#define MOTOR_A_IN1_PORT    GPIOB
+#define MOTOR_A_IN1_PIN     GPIO_PIN_13
+#define MOTOR_A_IN2_PORT    GPIOB
+#define MOTOR_A_IN2_PIN     GPIO_PIN_12
 
 // 电机B控制引脚
 #define MOTOR_B_IN1_PORT    GPIOB
-#define MOTOR_B_IN1_PIN     GPIO_PIN_6
+#define MOTOR_B_IN1_PIN     GPIO_PIN_14
 #define MOTOR_B_IN2_PORT    GPIOB
-#define MOTOR_B_IN2_PIN     GPIO_PIN_7
+#define MOTOR_B_IN2_PIN     GPIO_PIN_15
 
 // PWM定时器和通道定义
 #define MOTOR_PWM_TIMER     &htim3

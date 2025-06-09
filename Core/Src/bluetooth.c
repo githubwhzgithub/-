@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "motor_test.h"
 
 // 蓝牙实例定义
 Bluetooth_t Bluetooth = {
@@ -36,15 +37,19 @@ void Bluetooth_Init(void)
     memset(Bluetooth.tx_buffer, 0, BT_TX_BUFFER_SIZE);
     memset(Bluetooth.command_buffer, 0, BT_COMMAND_MAX_LEN);
 
-    // 启动UART接收中断
-    HAL_UART_Receive_IT(BT_UART_HANDLE, &Bluetooth.rx_buffer[0], 1);
+    // 启动UART接收中断 - 注意：实际接收在main.c的HAL_UART_RxCpltCallback中处理
+    // 这里只是为了兼容原有的GO命令等待逻辑
+    uint8_t temp_rx_byte;
+    HAL_UART_Receive_IT(BT_UART_HANDLE, &temp_rx_byte, 1);
 
     while(1){
         // 等待蓝牙模块连接
         if(strncmp((char*)Bluetooth.rx_buffer, BT_CMD_GO, 2) == 0) {
             Bluetooth.connected = 1;
+            memset(Bluetooth.rx_buffer, 0, BT_RX_BUFFER_SIZE);
             break; // 连接成功，跳出循环
         }
+        HAL_Delay(10);
     }
     
 }
@@ -55,11 +60,6 @@ void Bluetooth_Init(void)
 void Bluetooth_Update(void)
 {
     uint32_t current_time = HAL_GetTick();
-
-    // 检查连接状态 (5秒无通信则认为断开)
-    if(current_time - Bluetooth.last_heartbeat > 5000) {
-        Bluetooth.connected = 0;
-    }
 
     // 处理接收到的命令
     if(Bluetooth.command_ready) {
@@ -245,6 +245,11 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         // 关闭视觉模式
         BalanceControl_SetVisionMode(0);
         Bluetooth_SendMessage("Vision mode disabled\r\n");
+    }
+    // 电机测试命令处理
+    else if(strncmp(cmd, "M", 1) == 0) {
+        // 所有以M开头的命令都转发给电机测试模块处理
+        MotorTest_ProcessCommand(cmd, param);
     }
     else {
         Bluetooth_SendMessage("Unknown Command\r\n");

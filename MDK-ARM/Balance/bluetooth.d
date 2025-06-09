@@ -36,10 +36,11 @@ balance\bluetooth.o: ../Core/Inc/mpu6050.h
 balance\bluetooth.o: ../Core/Inc/i2c.h
 balance\bluetooth.o: ../Core/Inc/TB6612.h
 balance\bluetooth.o: ../Core/Inc/tim.h
+balance\bluetooth.o: ../Core/Inc/gpio.h
 balance\bluetooth.o: ../Core/Inc/motorencoder.h
 balance\bluetooth.o: ../Core/Inc/ultrasonic.h
-balance\bluetooth.o: ../Core/Inc/gpio.h
 balance\bluetooth.o: ../Core/Inc/k230_vision.h
 balance\bluetooth.o: D:\Program Files\Keil_v5\ARM\ARMCC\Bin\..\include\string.h
 balance\bluetooth.o: D:\Program Files\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
 balance\bluetooth.o: D:\Program Files\Keil_v5\ARM\ARMCC\Bin\..\include\stdlib.h
+balance\bluetooth.o: ../Core/Inc/motor_test.h

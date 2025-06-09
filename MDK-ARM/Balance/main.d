@@ -44,3 +44,4 @@ balance\main.o: ../Core/Inc/ultrasonic.h
 balance\main.o: ../Core/Inc/balance_control.h
 balance\main.o: ../Core/Inc/k230_vision.h
 balance\main.o: ../Core/Inc/bluetooth.h
+balance\main.o: ../Core/Inc/motor_test.h

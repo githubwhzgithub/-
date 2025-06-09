@@ -16,6 +16,7 @@
 "balance\usart.o"
 "balance\stm32f1xx_it.o"
 "balance\stm32f1xx_hal_msp.o"
+"balance\motor_test.o"
 "balance\stm32f1xx_hal_gpio_ex.o"
 "balance\stm32f1xx_hal_i2c.o"
 "balance\stm32f1xx_hal.o"

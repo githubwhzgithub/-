@@ -73,6 +73,8 @@ void Error_Handler(void);
 #define BT_TX_GPIO_Port GPIOB
 #define BT_RX_Pin GPIO_PIN_11
 #define BT_RX_GPIO_Port GPIOB
+#define AIN1_Pin GPIO_PIN_13
+#define AIN1_GPIO_Port GPIOB
 #define AIN2_Pin GPIO_PIN_12
 #define AIN2_GPIO_Port GPIOB
 #define BIN1_Pin GPIO_PIN_14
