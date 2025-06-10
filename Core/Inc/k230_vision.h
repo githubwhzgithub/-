@@ -13,9 +13,6 @@
 #define K230_HEAD                  (0x24)  // 协议头 '$'
 #define K230_TAIL                  (0x23)  // 协议尾 '#'
 
-/* 功能ID定义 */
-#define K230_MODE_LINE_TRACKING       (1)     // 循迹功能
-#define K230_MODE_OBJECT_TRACKING     (15)    // 物体追踪功能
 
 /* 循迹数据结构 */
 typedef struct {
@@ -48,10 +45,14 @@ typedef struct {
 
 /* 工作模式定义 */
 typedef enum {
-    K230_MODE_IDLE = 0,        // 空闲模式
-    K230_MODE_LINE_TRACK,      // 循迹模式
-    K230_MODE_OBJECT_TRACK     // 物体追踪模式
+    K230_MODE_IDLE = 0,               // Idle mode
+    K230_MODE_LINE_TRACKING = 1,      // Line tracking mode (mode 1 in vision_tracker.py)
+    K230_MODE_OBJECT_TRACKING = 2,    // Object tracking mode (mode 2 in vision_tracker.py)
 } K230_Mode_t;
+
+/* Legacy mode definitions for compatibility */
+#define K230_MODE_LINE_TRACK    K230_MODE_LINE_TRACKING
+#define K230_MODE_OBJECT_TRACK  K230_MODE_OBJECT_TRACKING
 
 /* 函数声明 */
 void K230_Vision_Init(UART_HandleTypeDef *huart);

@@ -225,7 +225,10 @@ void BalanceControl_Update(void)
     if(fabs(BalanceState.roll) > MAX_TILT_ANGLE ||
        fabs(BalanceState.pitch) > MAX_TILT_ANGLE ||
        BalanceState.obstacle_detected) {
-        BalanceControl_EmergencyStop();
+        //停止前进但保持直立平衡
+        SpeedPID.setpoint = 0.0f;
+        float average_speed = (BalanceState.left_speed + BalanceState.right_speed) / 2.0f;
+        float speed_output = BalanceControl_PID_Update(&SpeedPID, average_speed, dt);
         return;
     }
 
@@ -236,6 +239,7 @@ void BalanceControl_Update(void)
     }
 
     // 角度环控制 - 使用roll值进行平衡控制
+    BalanceState.target_angle = BALANCE_TARGET_ANGLE;
     AnglePID.setpoint = BalanceState.target_angle ;
     float angle_output = BalanceControl_PID_Update(&AnglePID, BalanceState.roll, dt);
 
@@ -256,8 +260,11 @@ void BalanceControl_Update(void)
         if(turn_output < -TURN_PID_MAX_OUTPUT) turn_output = -TURN_PID_MAX_OUTPUT;
     } else {
         // 非视觉模式下，基于Z轴角速度进行转向控制
-        TurnPID.setpoint = BalanceState.target_yaw_rate; // 使用目标偏航角速度
-        turn_output = BalanceControl_PID_Update(&TurnPID, BalanceState.yaw_rate, dt);
+        if(BalanceState.target_yaw_rate != 0.0f) {
+            TurnPID.setpoint = BalanceState.target_yaw_rate; // 使用目标偏航角速度
+            turn_output = BalanceControl_PID_Update(&TurnPID, BalanceState.yaw_rate, dt);
+        }
+        
     }
 
     // 计算左右电机输出
@@ -421,20 +428,20 @@ void BalanceControl_LineTracking(void)
         if(BalanceState.vision_error_x > 1.0f) BalanceState.vision_error_x = 1.0f;
         if(BalanceState.vision_error_x < -1.0f) BalanceState.vision_error_x = -1.0f;
         
-        // 使用OpenMV发送的速度因子（在line_angle字段中）
-        // OpenMV已经根据线条角度、置信度等因素计算了最优速度
-        float speed_factor = (float)vision_data->line_track.line_angle / 100.0f; // 转换为0.0-1.0范围
+        // 使用vision_tracker.py发送的角度信息进行转向控制
+        float line_angle = (float)vision_data->line_track.line_angle;
         
-        // 限制速度因子范围
-        if(speed_factor > 1.0f) speed_factor = 1.0f;
-        if(speed_factor < 0.3f) speed_factor = 0.3f;
+        // 根据线条角度调整速度（角度越大，速度越慢）
+        float angle_speed_factor = 1.0f - 0.3f * (fabs(line_angle) / 90.0f);
+        if(angle_speed_factor < 0.4f) angle_speed_factor = 0.4f;
+        if(angle_speed_factor > 1.0f) angle_speed_factor = 1.0f;
         
         // 根据转向误差进一步调整速度（转向越大，速度越慢）
         float turn_speed_factor = 1.0f - 0.5f * fabs(BalanceState.vision_error_x);
         if(turn_speed_factor < 0.5f) turn_speed_factor = 0.5f;
         
-        // 设置前进速度（基础速度 * OpenMV速度因子 * 转向速度因子）
-        BalanceState.target_speed = 0.25f * speed_factor * turn_speed_factor;
+        // 设置前进速度（基础速度 * 角度速度因子 * 转向速度因子）
+        BalanceState.target_speed = 0.25f * angle_speed_factor * turn_speed_factor;
         
     } else {
         // 没有检测到线条，逐渐减速停止
@@ -456,18 +463,26 @@ void BalanceControl_LineTracking(void)
  */
 void BalanceControl_ObjectTracking(void)
 {
-    /*K230_ObjectTrack_t* obj_data = K230_Vision_GetObjectTrackingData();
+    K230_Vision_t* vision_data = K230_GetVisionData();
     
     if(K230_Vision_IsObjectDetected()) {
         // 计算物体中心相对于图像中心的偏移
-        float image_center_x = 160.0f; // 假设图像宽度为320像素
-        float image_center_y = 120.0f; // 假设图像高度为240像素
+        float image_center_x = 320.0f; // vision_tracker.py图像宽度为640像素，中心为320
+        float image_center_y = 240.0f; // vision_tracker.py图像高度为480像素，中心为240
         
-        float obj_center_x = obj_data->obj_x + obj_data->obj_w / 2.0f;
-        float obj_center_y = obj_data->obj_y + obj_data->obj_h / 2.0f;
+        // vision_tracker.py直接发送物体中心坐标
+        float obj_center_x = (float)vision_data->object_track.obj_x;
+        float obj_center_y = (float)vision_data->object_track.obj_y;
         
         // 计算X轴误差 (转向控制)
-        BalanceState.vision_error_x = (obj_center_x - image_center_x) / image_center_x;
+        float raw_error_x = (obj_center_x - image_center_x) / image_center_x;
+        
+        // 对转向误差进行低通滤波，减少抖动
+        static float filtered_error_x = 0.0f;
+        float filter_alpha = 0.6f; // 滤波系数
+        filtered_error_x = filter_alpha * raw_error_x + (1.0f - filter_alpha) * filtered_error_x;
+        
+        BalanceState.vision_error_x = filtered_error_x;
         
         // 计算Y轴误差 (距离控制)
         BalanceState.vision_error_y = (obj_center_y - image_center_y) / image_center_y;
@@ -478,25 +493,36 @@ void BalanceControl_ObjectTracking(void)
         if(BalanceState.vision_error_y > 1.0f) BalanceState.vision_error_y = 1.0f;
         if(BalanceState.vision_error_y < -1.0f) BalanceState.vision_error_y = -1.0f;
         
-        // 根据物体大小调整速度 (物体越大说明越近)
-        float obj_size = obj_data->obj_w * obj_data->obj_h;
-        float distance_factor = 1.0f - (obj_size / (320.0f * 240.0f)); // 归一化距离因子
-        if(distance_factor < 0.1f) distance_factor = 0.1f; // 最小距离因子
+        // 根据物体宽度调整速度 (物体越大说明越近)
+        float obj_width = (float)vision_data->object_track.obj_w;
+        float distance_factor = 1.0f - (obj_width / 640.0f); // 归一化距离因子
+        if(distance_factor < 0.2f) distance_factor = 0.2f; // 最小距离因子
         if(distance_factor > 1.0f) distance_factor = 1.0f;
         
+        // 根据转向误差调整速度（转向越大，速度越慢）
+        float turn_speed_factor = 1.0f - 0.4f * fabs(BalanceState.vision_error_x);
+        if(turn_speed_factor < 0.3f) turn_speed_factor = 0.3f;
+        
         // 设置追踪速度
-        if(distance_factor > 0.5f) {
+        if(distance_factor > 0.4f) {
             // 物体较远，前进追踪
-            BalanceState.target_speed = 0.3f * distance_factor;
+            BalanceState.target_speed = 0.25f * distance_factor * turn_speed_factor;
         } else {
             // 物体较近，减速或停止
-            BalanceState.target_speed = 0.1f;
+            BalanceState.target_speed = 0.1f * turn_speed_factor;
         }
         
     } else {
-        // 没有检测到物体，停止运动
-        BalanceState.target_speed = 0.0f;
-        BalanceState.vision_error_x = 0.0f;
-        BalanceState.vision_error_y = 0.0f;
-    } */
+        // 没有检测到物体，逐渐减速停止
+        static float stop_speed_factor = 1.0f;
+        stop_speed_factor *= 0.9f; // 逐渐减速
+        if(stop_speed_factor < 0.1f) {
+            BalanceState.target_speed = 0.0f;
+            BalanceState.vision_error_x = 0.0f;
+            BalanceState.vision_error_y = 0.0f;
+            stop_speed_factor = 1.0f; // 重置减速因子
+        } else {
+            BalanceState.target_speed *= stop_speed_factor;
+        }
+    }
 }

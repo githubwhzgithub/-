@@ -69,7 +69,7 @@ typedef struct {
 /**
  * @brief 平衡控制基本参数
  */
-#define BALANCE_TARGET_ANGLE    0.0f    // 目标平衡角度（度）- 平衡车的理想直立角度
+#define BALANCE_TARGET_ANGLE   -5.0f    // 目标平衡角度（度）- 平衡车的理想直立角度
 #define MAX_TILT_ANGLE         45.0f    // 最大倾斜角度（度）- 超过此角度触发保护
 #define MIN_OBSTACLE_DISTANCE  10.0f    // 最小障碍物距离（厘米）- 触发避障的距离阈值
 
@@ -79,7 +79,7 @@ typedef struct {
  */
 
 /* 角度环PID参数 - 控制平衡车的俯仰角度，维持直立状态 */
-#define ANGLE_PID_KP           15.0f    // 角度比例系数 - 主要控制力，影响平衡响应速度
+#define ANGLE_PID_KP           50.0f    // 角度比例系数 - 主要控制力，影响平衡响应速度
 #define ANGLE_PID_KI           0.5f     // 角度积分系数 - 消除静态误差，防止长期偏移
 #define ANGLE_PID_KD           2.0f     // 角度微分系数 - 阻尼作用，减少震荡
 #define ANGLE_PID_MAX_OUTPUT   200.0f  // 角度PID最大输出 - 限制电机最大驱动力

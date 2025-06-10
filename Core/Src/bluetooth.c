@@ -246,6 +246,22 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         BalanceControl_SetVisionMode(0);
         Bluetooth_SendMessage("Vision mode disabled\r\n");
     }
+    else if(strcmp(cmd, BT_CMD_COLOR) == 0) {
+        // 设置追踪颜色
+        // 参数格式: COLOR RED 或 COLOR GREEN 或 COLOR BLUE
+        if(param != NULL) {
+            char color_cmd[32];
+            snprintf(color_cmd, sizeof(color_cmd), "COLOR_%s\r\n", param);
+            // 通过UART2发送颜色设置命令给vision_tracker.py
+            HAL_UART_Transmit(&huart2, (uint8_t*)color_cmd, strlen(color_cmd), 100);
+            
+            char response[64];
+            snprintf(response, sizeof(response), "Color set to %s\r\n", param);
+            Bluetooth_SendMessage(response);
+        } else {
+            Bluetooth_SendMessage("Usage: COLOR <RED|GREEN|BLUE>\r\n");
+        }
+    }
     // 电机测试命令处理
     else if(strncmp(cmd, "M", 1) == 0) {
         // 所有以M开头的命令都转发给电机测试模块处理

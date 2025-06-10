@@ -135,10 +135,16 @@ void K230_Vision_Update(void)
 void K230_SetMode(K230_Mode_t mode)
 {
     k230_vision_data.current_mode = mode;
-    // 这里可以发送模式切换命令给K230模块
-    // 格式: $mode_id#
-    char cmd[10];
-    sprintf(cmd, "$%d#", mode);
+    // 发送模式切换命令给vision_tracker.py
+    // 格式: MODE_1 (循迹模式) 或 MODE_2 (物体检测模式)
+    char cmd[20];
+    if (mode == K230_MODE_LINE_TRACK) {
+        sprintf(cmd, "MODE_1\r\n");
+    } else if (mode == K230_MODE_OBJECT_TRACK) {
+        sprintf(cmd, "MODE_2\r\n");
+    } else {
+        sprintf(cmd, "MODE_0\r\n");  // 空闲模式
+    }
     HAL_UART_Transmit(&huart2, (uint8_t*)cmd, strlen(cmd), 100);
 }
 
@@ -319,15 +325,15 @@ static void K230_ParseData(uint8_t *data_buf, uint8_t length)
     uint8_t func_id = values[1];
     uint32_t current_time = HAL_GetTick();
     
-    // OpenMV使用颜色检测协议(ID=1)发送循迹数据
-    // 数据格式: $length,1,center_x,angle,control_output,found#
-    // 其中angle作为y坐标，control_output作为宽度，found作为置信度
+    // 新的vision_tracker.py使用YbProtocol发送数据
+    // 循迹模式数据格式: $length,1,center_x,angle,speed_percentage,found#
+    // 物体检测模式数据格式: $length,1,center_x,center_y,width,found#
     if (func_id == K230_MODE_LINE_TRACKING && data_index >= 6)
     {
         k230_vision_data.line_track.line_x = values[2];        // 线条中心X坐标
-        k230_vision_data.line_track.line_y = values[3];        // 线条角度(作为Y坐标)
+        k230_vision_data.line_track.line_y = 240;              // 固定Y坐标(图像中心)
         k230_vision_data.line_track.line_angle = values[3];    // 线条角度
-        // values[4] 是控制输出的绝对值*100
+        // values[4] 是速度百分比 (0-100)
         // values[5] 是found标志
         k230_vision_data.line_track.line_detected = (values[5] > 0) ? 1 : 0;
         k230_vision_data.line_track.valid = 1;
@@ -335,12 +341,12 @@ static void K230_ParseData(uint8_t *data_buf, uint8_t length)
     }
     else if (func_id == K230_MODE_OBJECT_TRACKING && data_index >= 6)
     {
-        // 物体追踪数据格式: $length,15,x,y,w,h#
-        k230_vision_data.object_track.obj_x = values[2];
-        k230_vision_data.object_track.obj_y = values[3];
-        k230_vision_data.object_track.obj_w = values[4];
-        k230_vision_data.object_track.obj_h = values[5];
-        k230_vision_data.object_track.obj_detected = 1;
+        // 物体追踪数据格式: $length,1,center_x,center_y,width,found#
+        k230_vision_data.object_track.obj_x = values[2];       // 物体中心X坐标
+        k230_vision_data.object_track.obj_y = values[3];       // 物体中心Y坐标
+        k230_vision_data.object_track.obj_w = values[4];       // 物体宽度
+        k230_vision_data.object_track.obj_h = values[4];       // 物体高度(使用宽度近似)
+        k230_vision_data.object_track.obj_detected = (values[5] > 0) ? 1 : 0;
         k230_vision_data.object_track.valid = 1;
         k230_vision_data.object_track.last_update = current_time;
     }

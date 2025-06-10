@@ -28,6 +28,7 @@
 #define BT_CMD_LINE         "LINE"      // 循迹模式
 #define BT_CMD_TRACK        "TRACK"     // 物体追踪模式
 #define BT_CMD_VISION_OFF   "VOFF"      // 关闭视觉
+#define BT_CMD_COLOR        "COLOR"     // 设置追踪颜色
 
 // 蓝牙状态枚举
 typedef enum {

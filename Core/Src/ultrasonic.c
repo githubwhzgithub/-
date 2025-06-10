@@ -19,7 +19,6 @@ extern TIM_HandleTypeDef htim1;
 
 // 私有函数声明
 static void Ultrasonic_DelayUs(uint32_t us);
-static float Ultrasonic_MedianFilter(float new_value);
 
 /**
  * @brief 微秒延时函数
