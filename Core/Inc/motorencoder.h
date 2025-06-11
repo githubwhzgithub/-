@@ -9,7 +9,7 @@
 #define ENCODER_B_TIMER     &htim2  // 电机B编码器使用TIM2
 
 // 编码器参数
-#define ENCODER_RESOLUTION  1024    // 编码器分辨率 (每转脉冲数)
+#define ENCODER_RESOLUTION  13      // 编码器分辨率 (每转脉冲数) - 霍尔编码器13ppr
 #define WHEEL_DIAMETER      65.0f   // 轮子直径 (mm)
 #define GEAR_RATIO          30.0f   // 减速比
 #define ENCODER_SAMPLE_TIME 10      // 编码器采样时间 (ms)

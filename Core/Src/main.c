@@ -227,14 +227,24 @@ int main(void)
   sprintf((char*)init_msg, "Motor Test Module initialized!\r\n");
   Bluetooth_SendMessage((char*)init_msg);
   while(1){
-    MotorTest_LeftForward(100);
-    HAL_Delay(1000);
-    MotorTest_LeftBackward(100);
-    HAL_Delay(1000);
-    MotorTest_RightForward(100);
-    HAL_Delay(1000);
-    MotorTest_RightBackward(100);
-    HAL_Delay(1000);
+    MotorTest_BothForward(500);
+    for(int i=0;i<5;i++){
+      MotorEncoder_Update();
+      BalanceState.left_speed = MotorEncoder_GetSpeedMPS(&EncoderA);
+      BalanceState.right_speed = MotorEncoder_GetSpeedMPS(&EncoderB);
+      sprintf((char*)init_msg, "Forward_Speed: %f, %f\r\n", BalanceState.left_speed, BalanceState.right_speed);
+      Bluetooth_SendStatus();
+      HAL_Delay(1000);
+    }
+    MotorTest_BothBackward(500);
+    for(int i=0;i<5;i++){
+      MotorEncoder_Update();
+      BalanceState.left_speed = MotorEncoder_GetSpeedMPS(&EncoderA);
+      BalanceState.right_speed = MotorEncoder_GetSpeedMPS(&EncoderB);
+      sprintf((char*)init_msg, "Backward_Speed: %f, %f\r\n", BalanceState.left_speed, BalanceState.right_speed);
+      Bluetooth_SendStatus();
+      HAL_Delay(1000);
+    }
   }
   HAL_Delay(100);*/
 
@@ -299,9 +309,6 @@ int main(void)
     {
       last_ultrasonic_update = current_time;
       Ultrasonic_Update();              // 执行超声波测距，更新障碍物距离信息
-      //sprintf((char*)init_msg, "Distance: %dcm\r\n", Ultrasonic_GetDistance());
-      //Bluetooth_SendMessage((char*)init_msg);
-      //HAL_Delay(1000);
     }
 
     // 蓝牙通信更新任务 (每20毫秒) - 指令处理

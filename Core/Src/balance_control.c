@@ -142,7 +142,7 @@ float BalanceControl_PID_Update(PID_Controller_t* pid, float current_value, floa
          float raw_derivative = (error - pid->last_error) / dt;
          
          // 一阶低通滤波器，截止频率约为采样频率的1/10
-         const float alpha = 0.1f;  // 滤波系数
+         const float alpha = 0.9f;  // 滤波系数
          pid->filtered_derivative = alpha * raw_derivative + (1.0f - alpha) * pid->filtered_derivative;
          
          derivative = pid->Kd * pid->filtered_derivative;
@@ -207,10 +207,10 @@ void BalanceControl_Update(void)
         BalanceState.yaw_rate = gz;  // Z轴角速度用于转向控制
     }
 
-    // 更新编码器数据
-    MotorEncoder_Update();
+    // 获取编码器数据（编码器在main.c中每10ms更新一次）
     BalanceState.left_speed = MotorEncoder_GetSpeedMPS(&EncoderA);
     BalanceState.right_speed = MotorEncoder_GetSpeedMPS(&EncoderB);
+    
 
     // 获取超声波数据
     BalanceState.distance_front = Ultrasonic_GetDistance();
@@ -223,15 +223,15 @@ void BalanceControl_Update(void)
 
     // 检查是否需要紧急停止 - 主要检查roll值（平衡控制轴）
     if(fabs(BalanceState.roll) > MAX_TILT_ANGLE ||
-       fabs(BalanceState.pitch) > MAX_TILT_ANGLE ||
-       BalanceState.obstacle_detected) {
+       fabs(BalanceState.pitch) > MAX_TILT_ANGLE ) {
         //停止前进但保持直立平衡
-        SpeedPID.setpoint = 0.0f;
-        float average_speed = (BalanceState.left_speed + BalanceState.right_speed) / 2.0f;
-        float speed_output = BalanceControl_PID_Update(&SpeedPID, average_speed, dt);
-        return;
+        BalanceState.balance_enabled = 0;
     }
 
+    // 障碍物检测
+    if(BalanceState.obstacle_detected) {
+        BalanceState.target_speed = 0.0f;
+    }
     // 如果平衡控制未使能，停止电机
     if(!BalanceState.balance_enabled) {
         TB6612_StopAllMotors();

@@ -52,12 +52,14 @@ void MotorEncoder_Update(void)
     int32_t current_count_A = (int32_t)__HAL_TIM_GET_COUNTER(ENCODER_A_TIMER);
     int32_t delta_count_A = current_count_A - EncoderA.last_count;
 
+    
     // 处理定时器溢出
     if(delta_count_A > 32767) {
         delta_count_A -= 65536;
     } else if(delta_count_A < -32767) {
         delta_count_A += 65536;
     }
+
 
     EncoderA.total_count += delta_count_A;
     EncoderA.last_count = current_count_A;
@@ -90,6 +92,8 @@ void MotorEncoder_Update(void)
     } else if(delta_count_B < -32767) {
         delta_count_B += 65536;
     }
+
+    delta_count_B = -delta_count_B;
 
     EncoderB.total_count += delta_count_B;
     EncoderB.last_count = current_count_B;
