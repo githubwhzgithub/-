@@ -144,7 +144,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         Bluetooth_SendMessage("Balance Stopped\r\n");
     }
     else if(strcmp(cmd, BT_CMD_FORWARD) == 0) {
-        float speed = 0.03f; // 默认速度，这里也修改了一下。从0.05改成了0.03
+        float speed = 0.05f; // 默认速度
         if(param != NULL) {
             speed = atof(param);
         }
@@ -152,7 +152,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         Bluetooth_SendMessage("Moving Forward\r\n");
     }
     else if(strcmp(cmd, BT_CMD_BACKWARD) == 0) {
-        float speed = -0.03f; // 默认速度
+        float speed = -0.05f; // 默认速度
         if(param != NULL) {
             speed = -atof(param);
         }
@@ -321,12 +321,14 @@ void Bluetooth_SendStatus(void)
     // 发送基本状态信息
     // 如果视觉模式开启，发送视觉数据
     if(state->vision_mode > 0) {
+        K230_Vision_t* vision_data = K230_GetVisionData();
+        
         snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE,
                 "VISION: ErrorX=%.3f ErrorY=%.3f LineDetected=%d ObjectDetected=%d\r\n",
                 state->vision_error_x, state->vision_error_y,
                 K230_Vision_IsLineDetected(), K230_Vision_IsObjectDetected());
         Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
-    }
+        }
     else{
         snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE,
             "STATUS: Pitch=%.2f Roll=%.2f Speed=%.2f Distance=%.1fcm Enabled=%d Vision=%s YawRate=%.4f Target_YawRate=%.4f\r\n",

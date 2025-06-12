@@ -10,18 +10,15 @@
 
 /* 私有变量 */
 static uint8_t k230_rx_buffer[K230_BUF_LEN_MAX];  // 接收缓冲区
-static uint8_t k230_rx_index = 0;                 // 接收数据索引
-static uint8_t k230_rx_flag = 0;                  // 接收状态机标志
+static uint8_t k230_rx_index = 0;                 // 接收索引
+static uint8_t k230_rx_flag = 0;                  // 接收状态标志
 static uint8_t k230_new_data_flag = 0;            // 新数据标志
-static uint8_t k230_data_length = 0;              // 数据长度
+static uint8_t k230_data_len = 0;                 // 数据长度
 
-static K230_Vision_t k230_vision_data;            // 视觉数据结构
+/* 全局变量 */
+K230_Vision_t k230_vision_data;                   // 视觉数据结构体
+/* 注意: 单字节接收缓冲区现在使用main.c中HAL_UART_RxCpltCallback函数的静态局部变量 */
 
-/* 图像中心坐标定义 (假设640*480分辨率) */
-#define IMAGE_CENTER_X  320
-#define IMAGE_CENTER_Y  240
-#define IMAGE_WIDTH     640
-#define IMAGE_HEIGHT    480
 
 /* 私有函数声明 */
 static void K230_ParseData(uint8_t *data_buf, uint8_t length);
@@ -32,6 +29,9 @@ static void K230_ClearBuffer(void);
  * @brief 初始化K230视觉模块
  * @param huart: 串口句柄
  */
+// 单字节接收缓冲区，用于UART中断接收
+uint8_t k230_single_rx_byte;
+
 void K230_Vision_Init(UART_HandleTypeDef *huart)
 {
     // 清空接收缓冲区
@@ -42,8 +42,8 @@ void K230_Vision_Init(UART_HandleTypeDef *huart)
     k230_vision_data.current_mode = K230_MODE_IDLE;
     k230_vision_data.communication_ok = 0;
     
-    // 启动UART2接收中断 (K230连接到UART2)
-    HAL_UART_Receive_IT(&huart2, &k230_rx_buffer[0], 1);
+    // 注意: UART2接收中断将在main.c的HAL_UART_RxCpltCallback中手动启动
+    // 这样可以使用静态局部变量作为接收缓冲区，提高代码一致性
 }
 
 /**
@@ -70,7 +70,7 @@ void K230_Vision_ReceiveData(uint8_t rx_data)
         if (rx_data == K230_TAIL)
         {
             k230_new_data_flag = 1;
-            k230_data_length = k230_rx_index;
+            k230_data_len = k230_rx_index;
             k230_rx_flag = 0;
             k230_rx_index = 0;
         }
@@ -78,7 +78,7 @@ void K230_Vision_ReceiveData(uint8_t rx_data)
         {
             // 缓冲区溢出，重置状态
             k230_new_data_flag = 0;
-            k230_data_length = 0;
+            k230_data_len = 0;
             k230_rx_flag = 0;
             k230_rx_index = 0;
             K230_ClearBuffer();
@@ -98,12 +98,12 @@ void K230_Vision_Update(void)
 {
     if (k230_new_data_flag)
     {
-        K230_ParseData(k230_rx_buffer, k230_data_length);
+        K230_ParseData(k230_rx_buffer, k230_data_len);
         k230_new_data_flag = 0;
         K230_ClearBuffer();
         k230_vision_data.communication_ok = 1;
     }
-    
+ 
     // 检查通讯超时 (1秒无数据认为通讯异常)
     uint32_t current_time = HAL_GetTick();
     if (k230_vision_data.line_track.valid && 
@@ -265,7 +265,7 @@ float K230_GetObjectDistance(void)
     return object_size / max_size;  // 返回0-1之间的值，1表示最近
 }
 
-/* 私有函数实现 */
+
 
 /**
  * @brief 解析接收到的数据
@@ -294,11 +294,11 @@ static void K230_ParseData(uint8_t *data_buf, uint8_t length)
         if (data_buf[i] == ',')
         {
             data_buf[i] = 0;  // 替换为字符串结束符
-            data_index++;
-            if (data_index < K230_BUF_LEN_MAX)
+            if (data_index + 1 < K230_BUF_LEN_MAX)
             {
-                field_start[data_index] = i + 1;
+                field_start[data_index + 1] = i + 1;  // 先设置下一个字段起始位置
             }
+            data_index++;  // 再递增索引
         }
     }
     data_index++; // 包含最后一个字段
@@ -327,7 +327,7 @@ static void K230_ParseData(uint8_t *data_buf, uint8_t length)
     
     // 新的vision_tracker.py使用YbProtocol发送数据
     // 循迹模式数据格式: $length,1,center_x,angle,speed_percentage,found#
-    // 物体检测模式数据格式: $length,1,center_x,center_y,width,found#
+    // 物体检测模式数据格式: $length,2,center_x,center_y,width,found#
     if (func_id == K230_MODE_LINE_TRACK && data_index >= 6)
     {
         k230_vision_data.line_track.line_x = values[2];        // 线条中心X坐标
@@ -368,6 +368,6 @@ static int K230_CharToInt(char* data)
 static void K230_ClearBuffer(void)
 {
     memset(k230_rx_buffer, 0, K230_BUF_LEN_MAX);
-    k230_data_length = 0;
+    k230_data_len = 0;
     k230_new_data_flag = 0;
 }

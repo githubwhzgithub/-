@@ -1,4 +1,5 @@
 #include "balance_control.h"
+#include "bluetooth.h"
 #include <math.h>
 
 // PID控制器实例
@@ -230,8 +231,9 @@ void BalanceControl_Update(void)
 
     // 障碍物检测
     if(BalanceState.obstacle_detected) {
-        BalanceState.target_speed = 0.0f;
+        BalanceState.target_speed = 0.0f;           //停止前进
     }
+
     // 如果平衡控制未使能，停止电机
     if(!BalanceState.balance_enabled) {
         TB6612_StopAllMotors();
@@ -244,22 +246,33 @@ void BalanceControl_Update(void)
     float angle_output = BalanceControl_PID_Update(&AnglePID, BalanceState.roll, dt);
 
     // 速度环控制
+    float speed_output = 0.0f;
     float average_speed = (BalanceState.left_speed + BalanceState.right_speed) / 2.0f;
-    SpeedPID.setpoint = BalanceState.target_speed;
-    float speed_output = BalanceControl_PID_Update(&SpeedPID, average_speed, dt);
+    if(BalanceState.vision_mode == 0){
+        SpeedPID.setpoint = BalanceState.target_speed;
+        speed_output = BalanceControl_PID_Update(&SpeedPID, average_speed, dt);
+    }
+    else{
+        // 设置追踪速度
+        if(K230_Vision_IsObjectDetected() || K230_Vision_IsLineDetected()){
+            BalanceState.target_speed = 0.04f;
+        }else{
+            BalanceState.target_speed = 0.0f;
+        }
+        SpeedPID.setpoint = BalanceState.target_speed;
+        speed_output = BalanceControl_PID_Update(&SpeedPID, average_speed, dt);
+    }
+    
 
     // 转向控制
     float turn_output = 0.0f;
     if(BalanceState.vision_mode > 0) {
         // 视觉模式下直接使用视觉误差进行转向控制
         // vision_error_x范围为[-1.0, 1.0]，需要转换为合适的转向输出
-        turn_output = BalanceState.vision_error_x * TURN_PID_KP;
-        
-        // 限制转向输出范围
-        if(turn_output > TURN_PID_MAX_OUTPUT) turn_output = TURN_PID_MAX_OUTPUT;
-        if(turn_output < -TURN_PID_MAX_OUTPUT) turn_output = -TURN_PID_MAX_OUTPUT;
+        TurnPID.setpoint = VISION_KP * BalanceState.vision_error_x; // 使用目标偏航角速度
+        turn_output = BalanceControl_PID_Update(&TurnPID, BalanceState.yaw_rate, dt);
     } else {
-        // 非视觉模式下，基于Z轴角速度进行转向控制;注意这里删除了if语句
+        // 非视觉模式下，基于Z轴角速度进行转向控制
         TurnPID.setpoint = BalanceState.target_yaw_rate; // 使用目标偏航角速度
         turn_output = BalanceControl_PID_Update(&TurnPID, BalanceState.yaw_rate, dt);
         
@@ -441,18 +454,7 @@ void BalanceControl_LineTracking(void)
         // 设置前进速度（基础速度 * 角度速度因子 * 转向速度因子）
         BalanceState.target_speed = 0.25f * angle_speed_factor * turn_speed_factor;
         
-    } else {
-        // 没有检测到线条，逐渐减速停止
-        static float stop_speed_factor = 1.0f;
-        stop_speed_factor *= 0.9f; // 逐渐减速
-        if(stop_speed_factor < 0.1f) {
-            BalanceState.target_speed = 0.0f;
-            BalanceState.vision_error_x = 0.0f;
-            stop_speed_factor = 1.0f; // 重置减速因子
-        } else {
-            BalanceState.target_speed *= stop_speed_factor;
-        }
-    }
+    } 
 }
 
 /**
@@ -462,6 +464,7 @@ void BalanceControl_LineTracking(void)
 void BalanceControl_ObjectTracking(void)
 {
     K230_Vision_t* vision_data = K230_GetVisionData();
+
     
     if(K230_Vision_IsObjectDetected()) {
         // 计算物体中心相对于图像中心的偏移
@@ -491,36 +494,9 @@ void BalanceControl_ObjectTracking(void)
         if(BalanceState.vision_error_y > 1.0f) BalanceState.vision_error_y = 1.0f;
         if(BalanceState.vision_error_y < -1.0f) BalanceState.vision_error_y = -1.0f;
         
-        // 根据物体宽度调整速度 (物体越大说明越近)
-        float obj_width = (float)vision_data->object_track.obj_w;
-        float distance_factor = 1.0f - (obj_width / 640.0f); // 归一化距离因子
-        if(distance_factor < 0.2f) distance_factor = 0.2f; // 最小距离因子
-        if(distance_factor > 1.0f) distance_factor = 1.0f;
         
         // 根据转向误差调整速度（转向越大，速度越慢）
         float turn_speed_factor = 1.0f - 0.4f * fabs(BalanceState.vision_error_x);
         if(turn_speed_factor < 0.3f) turn_speed_factor = 0.3f;
-        
-        // 设置追踪速度
-        if(distance_factor > 0.4f) {
-            // 物体较远，前进追踪
-            BalanceState.target_speed = 0.25f * distance_factor * turn_speed_factor;
-        } else {
-            // 物体较近，减速或停止
-            BalanceState.target_speed = 0.1f * turn_speed_factor;
-        }
-        
-    } else {
-        // 没有检测到物体，逐渐减速停止
-        static float stop_speed_factor = 1.0f;
-        stop_speed_factor *= 0.9f; // 逐渐减速
-        if(stop_speed_factor < 0.1f) {
-            BalanceState.target_speed = 0.0f;
-            BalanceState.vision_error_x = 0.0f;
-            BalanceState.vision_error_y = 0.0f;
-            stop_speed_factor = 1.0f; // 重置减速因子
-        } else {
-            BalanceState.target_speed *= stop_speed_factor;
-        }
     }
 }

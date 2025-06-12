@@ -71,7 +71,7 @@ typedef struct {
  */
 #define BALANCE_TARGET_ANGLE   -5.2f    // 目标平衡角度（度）- 平衡车的理想直立角度
 #define MAX_TILT_ANGLE         45.0f    // 最大倾斜角度（度）- 超过此角度触发保护
-#define MIN_OBSTACLE_DISTANCE  10.0f    // 最小障碍物距离（厘米）- 触发避障的距离阈值
+#define MIN_OBSTACLE_DISTANCE  15.0f    // 最小障碍物距离（厘米）- 触发避障的距离阈值
 
 /**
  * @brief PID控制器参数定义
@@ -98,6 +98,9 @@ typedef struct {
 #define TURN_PID_KD            0.01f     // 转向微分系数 - 提高转向稳定性
 #define TURN_PID_MAX_OUTPUT    500.0f   // 转向PID最大输出 - 限制转向力矩
 #define TURN_PID_MAX_INTEGRAL  100.0f   // 转向PID积分限幅 - 防止积分饱和
+
+/*视觉PID参数 - 控制平衡车的循迹左右转向*/
+#define VISION_KP              -100.0f    //误差比例系数
 
 /* 函数接口声明 */
 

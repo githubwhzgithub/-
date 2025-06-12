@@ -13,6 +13,12 @@
 #define K230_HEAD                  (0x24)  // 协议头 '$'
 #define K230_TAIL                  (0x23)  // 协议尾 '#'
 
+/* 图像尺寸定义 (与vision_tracker.py中的Config.DISPLAY_WIDTH/HEIGHT对应) */
+#define IMAGE_WIDTH                (640)    // 图像宽度
+#define IMAGE_HEIGHT               (480)    // 图像高度
+#define IMAGE_CENTER_X             (320)    // 图像中心X坐标
+#define IMAGE_CENTER_Y             (240)    // 图像中心Y坐标
+
 
 /* 循迹数据结构 */
 typedef struct {
@@ -69,6 +75,8 @@ float K230_GetObjectXError(void);       // 获取物体X方向偏差
 float K230_GetObjectYError(void);       // 获取物体Y方向偏差
 uint8_t K230_Vision_IsObjectDetected(void);    // 检查是否检测到物体
 float K230_GetObjectDistance(void);     // 根据物体大小估算距离
+
+/* 注意: UART接收缓冲区现在使用main.c中HAL_UART_RxCpltCallback函数的静态局部变量 */
 
 #endif /* __K230_VISION_H__ */
 

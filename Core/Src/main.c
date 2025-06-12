@@ -102,10 +102,12 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart); // 串口接收完成�
  * @note 当串口接收到数据时，HAL库会自动调用此函数
  *       用于处理不同串口的数据接收
  */
+/* 全局变量 - 串口接收缓冲区 */
+uint8_t bt_rx_byte;   // 蓝牙接收字节缓冲
+uint8_t k230_rx_byte; // K230接收字节缓冲
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-  static uint8_t bt_rx_byte;  // 蓝牙接收字节缓冲
-  static uint8_t vision_rx_byte;  // 视觉模块接收字节缓冲
   
   if(huart->Instance == USART3)
   {
@@ -117,9 +119,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   else if(huart->Instance == USART2)
   {
     // K230视觉模块数据接收处理 (PA2-TX, PA3-RX)
-    K230_Vision_ReceiveData(vision_rx_byte);
+    // 获取接收到的字节数据并传递给K230处理函数
+    K230_Vision_ReceiveData(k230_rx_byte);
     // 重新启动接收 - 保持持续接收状态
-    HAL_UART_Receive_IT(&huart2, &vision_rx_byte, 1);
+    HAL_UART_Receive_IT(&huart2, &k230_rx_byte, 1);
   }
 }
 /* USER CODE END 0 */
@@ -162,6 +165,8 @@ int main(void)
   MX_USART2_UART_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
+  // 启动K230视觉模块串口接收中断
+  HAL_UART_Receive_IT(&huart2, &k230_rx_byte, 1);
   /* 用户自定义初始化代码区域3 - 传感器和模块初始化 */
 
 
@@ -172,6 +177,8 @@ int main(void)
 
   // 初始化蓝牙通信模块
   Bluetooth_Init();            // 配置蓝牙通信协议和命令解析
+  // 启动蓝牙串口接收中断
+  HAL_UART_Receive_IT(&huart3, &bt_rx_byte, 1);
   sprintf((char*)init_msg, "Bluetooth Communication initialized!\r\n");
   Bluetooth_SendMessage((char*)init_msg);
   HAL_Delay(100);
@@ -217,6 +224,10 @@ int main(void)
 
   // 初始化K230视觉模块
   K230_Vision_Init(&huart2);   // 配置K230视觉模块通信
+  // 手动启动K230串口接收中断
+  // 注意：必须使用与回调函数中相同的变量地址
+  extern uint8_t k230_rx_byte; // 声明外部变量
+  HAL_UART_Receive_IT(&huart2, &k230_rx_byte, 1);
   sprintf((char*)init_msg, "K230 Vision Module initialized!\r\n");
   Bluetooth_SendMessage((char*)init_msg);
   HAL_Delay(100);

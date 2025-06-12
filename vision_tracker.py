@@ -567,14 +567,18 @@ class VisionTracker:
         self.last_send_time = current_time
 
         try:
-            # 使用YbProtocol构造数据包 / Construct data packet using YbProtocol
+            # 根据STM32端K230_ParseData函数的协议要求构造数据包
             if self.current_mode == Config.MODE_LINE_TRACKING:
-                # 循迹模式：发送中心X、角度、速度百分比、找到标志
+                # 循迹模式数据格式: $length,1,center_x,angle,speed_percentage,found#
+                # 功能ID=1 对应STM32端的K230_MODE_LINE_TRACK
                 speed_percentage = int(speed_factor * 100)
-                pto_data = self.pto.get_color_data(int(center_x), int(param2), speed_percentage, int(found))
+                func_id = 1  # K230_MODE_LINE_TRACK
+                pto_data = self.pto.package_coord(func_id, int(center_x), int(param2), speed_percentage, int(found))
             else:
-                # 物体检测模式：发送中心X、中心Y、宽度、高度
-                pto_data = self.pto.get_color_data(int(center_x), int(param2), int(param3), int(found))
+                # 物体检测模式数据格式: $length,2,center_x,center_y,width,found#
+                # 功能ID=2 对应STM32端的K230_MODE_OBJECT_TRACK
+                func_id = 2  # K230_MODE_OBJECT_TRACK
+                pto_data = self.pto.package_coord(func_id, int(center_x), int(param2), int(param3), int(found))
 
             self.uart.send(pto_data)
 
@@ -801,7 +805,7 @@ def main():
         tracker = VisionTracker()
 
         # 设置默认模式和参数 / Set default mode and parameters
-        tracker.set_mode(Config.MODE_OBJECT_TRACKING)  # 默认循迹模式
+        tracker.set_mode(Config.MODE_OBJECT_TRACKING)  # 默认物体追踪模式
         tracker.set_line_tracking_color('black')     # 默认追踪黑色线条
         tracker.set_object_detection_color(0)        # 默认检测红色物体
 

@@ -42,4 +42,5 @@ balance\balance_control.o: ../Core/Inc/k230_vision.h
 balance\balance_control.o: D:\Program Files\Keil_v5\ARM\ARMCC\Bin\..\include\string.h
 balance\balance_control.o: D:\Program Files\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
 balance\balance_control.o: D:\Program Files\Keil_v5\ARM\ARMCC\Bin\..\include\stdlib.h
+balance\balance_control.o: ../Core/Inc/bluetooth.h
 balance\balance_control.o: D:\Program Files\Keil_v5\ARM\ARMCC\Bin\..\include\math.h
