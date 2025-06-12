@@ -71,8 +71,8 @@ void TB6612_SetMotorDirection(Motor_t* motor, MotorDirection_t direction)
 void TB6612_SetMotorSpeed(Motor_t* motor, int16_t speed)
 {
     // 限制速度范围
-    if(speed > 1000) speed = 1000;
-    if(speed < -1000) speed = -1000;
+    if(speed > MOTOR_MAX_SPEED) speed = MOTOR_MAX_SPEED;
+    if(speed < -MOTOR_MAX_SPEED) speed = -MOTOR_MAX_SPEED;
 
     motor->current_speed = speed;
 

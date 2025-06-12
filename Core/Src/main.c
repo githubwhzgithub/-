@@ -318,7 +318,7 @@ int main(void)
       Bluetooth_Update();                // 处理蓝牙接收的控制指令
     }
 
-    // 状态信息发送任务 (每3秒) - 调试和监控
+    // 状态信息发送任务 (每10秒) - 调试和监控
     if (current_time - last_status_send >= STATUS_SEND_INTERVAL)
     {
       last_status_send = current_time;

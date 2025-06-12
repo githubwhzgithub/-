@@ -3,7 +3,7 @@
 <title>Static Call Graph - [Balance\Balance.axf]</title></head>
 <body><HR>
 <H1>Static Call Graph for image Balance\Balance.axf</H1><HR>
-<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 5060960: Last Updated: Wed Jun 11 19:46:22 2025
+<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 5060960: Last Updated: Thu Jun 12 11:35:26 2025
 <BR><P>
 <H3>Maximum Stack Usage =        860 bytes + Unknown(Functions without stacksize, Cycles, Untraceable Function Pointers)</H3><H3>
 Call chain for Maximum Stack Depth:</H3>
@@ -1002,7 +1002,7 @@ Global Symbols
 <BR>[Called By]<UL><LI><a href="#[be]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;Bluetooth_ExecuteCommand
 </UL>
 
-<P><STRONG><a name="[b4]"></a>BalanceControl_Update</STRONG> (Thumb, 350 bytes, Stack size 40 bytes, balance_control.o(i.BalanceControl_Update))
+<P><STRONG><a name="[b4]"></a>BalanceControl_Update</STRONG> (Thumb, 352 bytes, Stack size 40 bytes, balance_control.o(i.BalanceControl_Update))
 <BR><BR>[Stack]<UL><LI>Max Depth = 336<LI>Call Chain = BalanceControl_Update &rArr; MPU_Get_Filtered_Angles &rArr; MPU_Get_Gyroscope &rArr; MPU_Get_RAW_Gyroscope &rArr; HAL_I2C_Mem_Read &rArr; I2C_RequestMemoryRead &rArr; I2C_WaitOnMasterAddressFlagUntilTimeout
 </UL>
 <BR>[Calls]<UL><LI><a href="#[b9]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;Ultrasonic_GetDistance
@@ -1084,8 +1084,8 @@ Global Symbols
 <LI><a href="#[5b]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[c7]"></a>Bluetooth_SendStatus</STRONG> (Thumb, 200 bytes, Stack size 88 bytes, bluetooth.o(i.Bluetooth_SendStatus))
-<BR><BR>[Stack]<UL><LI>Max Depth = 216 + Unknown Stack Size
+<P><STRONG><a name="[c7]"></a>Bluetooth_SendStatus</STRONG> (Thumb, 228 bytes, Stack size 120 bytes, bluetooth.o(i.Bluetooth_SendStatus))
+<BR><BR>[Stack]<UL><LI>Max Depth = 248 + Unknown Stack Size
 <LI>Call Chain = Bluetooth_SendStatus &rArr; __2snprintf &rArr; _printf_char_common &rArr; __printf
 </UL>
 <BR>[Calls]<UL><LI><a href="#[c2]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;Bluetooth_SendMessage

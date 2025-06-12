@@ -144,7 +144,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         Bluetooth_SendMessage("Balance Stopped\r\n");
     }
     else if(strcmp(cmd, BT_CMD_FORWARD) == 0) {
-        float speed = 0.2f; // 默认速度
+        float speed = 0.05f; // 默认速度
         if(param != NULL) {
             speed = atof(param);
         }
@@ -152,7 +152,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         Bluetooth_SendMessage("Moving Forward\r\n");
     }
     else if(strcmp(cmd, BT_CMD_BACKWARD) == 0) {
-        float speed = -0.2f; // 默认速度
+        float speed = -0.05f; // 默认速度
         if(param != NULL) {
             speed = -atof(param);
         }
@@ -160,7 +160,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         Bluetooth_SendMessage("Moving Backward\r\n");
     }
     else if(strcmp(cmd, BT_CMD_LEFT) == 0) {
-        float L_YawRate = 30.0f; // 默认角速度
+        float L_YawRate = 15.0f; // 默认角速度
         if(param!= NULL) {
             L_YawRate = abs(atof(param));    
         }
@@ -168,7 +168,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         Bluetooth_SendMessage("Turning Left\r\n");
     }
     else if(strcmp(cmd, BT_CMD_RIGHT) == 0) {
-        float R_YawRate = -30.0f; // 默认角速度
+        float R_YawRate = -15.0f; // 默认角速度
         if(param!= NULL) {
             R_YawRate = -abs(atof(param));
         }
@@ -285,12 +285,14 @@ void Bluetooth_SendStatus(void)
     
     // 发送基本状态信息
     snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE,
-            "STATUS: Pitch=%.2f Roll=%.2f Speed=%.2f Distance=%.1fcm Enabled=%d Vision=%s\r\n",
+            "STATUS: Pitch=%.2f Roll=%.2f Speed=%.2f Distance=%.1fcm Enabled=%d Vision=%s YawRate=%.4f Target_YawRate=%.4f\r\n",
             state->pitch, state->roll,
             (state->left_speed + state->right_speed) / 2.0f,
             state->distance_front,
             state->balance_enabled,
-            vision_mode_name);
+            vision_mode_name,
+            state->yaw_rate,
+            state->target_yaw_rate);
     Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
     
     // 如果视觉模式开启，发送视觉数据

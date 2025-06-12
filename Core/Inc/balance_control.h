@@ -69,7 +69,7 @@ typedef struct {
 /**
  * @brief 平衡控制基本参数
  */
-#define BALANCE_TARGET_ANGLE   -6.2f    // 目标平衡角度（度）- 平衡车的理想直立角度
+#define BALANCE_TARGET_ANGLE   -5.5f    // 目标平衡角度（度）- 平衡车的理想直立角度
 #define MAX_TILT_ANGLE         45.0f    // 最大倾斜角度（度）- 超过此角度触发保护
 #define MIN_OBSTACLE_DISTANCE  10.0f    // 最小障碍物距离（厘米）- 触发避障的距离阈值
 
@@ -79,21 +79,21 @@ typedef struct {
  */
 
 /* 角度环PID参数 - 控制平衡车的俯仰角度，维持直立状态 */
-#define ANGLE_PID_KP           90.0f * 0.9f    // 角度比例系数 - 主要控制力，影响平衡响应速度
+#define ANGLE_PID_KP           42.0f    // 角度比例系数 - 主要控制力，影响平衡响应速度
 #define ANGLE_PID_KI           0.0f     // 角度积分系数 - 消除静态误差，防止长期偏移
-#define ANGLE_PID_KD           2.0f * 0.9f    // 角度微分系数 - 阻尼作用，减少震荡
+#define ANGLE_PID_KD           1.5f     // 角度微分系数 - 阻尼作用，减少震荡
 #define ANGLE_PID_MAX_OUTPUT   900.0f  // 角度PID最大输出 - 限制电机最大驱动力
 #define ANGLE_PID_MAX_INTEGRAL 100.0f   // 角度PID积分限幅 - 防止积分饱和
 
 /* 速度环PID参数 - 控制平衡车的前进后退速度 */
-#define SPEED_PID_KP           -1200.0f     // 速度比例系数 - 速度跟踪响应强度
+#define SPEED_PID_KP           -2000.0f     // 速度比例系数 - 速度跟踪响应强度
 #define SPEED_PID_KI           SPEED_PID_KP / 200.0f     // 速度积分系数 - 消除速度稳态误差
 #define SPEED_PID_KD           0.0f     // 速度微分系数 - 通常设为0，避免噪声放大
-#define SPEED_PID_MAX_OUTPUT   300.0f    // 速度PID最大输出 
+#define SPEED_PID_MAX_OUTPUT   500.0f    // 速度PID最大输出 
 #define SPEED_PID_MAX_INTEGRAL 50.0f    // 速度PID积分限幅 
 
 /* 转向PID参数 - 控制平衡车的左右转向 */
-#define TURN_PID_KP            15.0f    // 转向比例系数 - 转向响应强度
+#define TURN_PID_KP            30.0f    // 转向比例系数 - 转向响应强度
 #define TURN_PID_KI            0.0f     // 转向积分系数 - 通常设为0，避免转向漂移
 #define TURN_PID_KD            2.0f     // 转向微分系数 - 提高转向稳定性
 #define TURN_PID_MAX_OUTPUT    500.0f   // 转向PID最大输出 - 限制转向力矩

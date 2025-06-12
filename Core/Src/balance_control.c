@@ -225,7 +225,7 @@ void BalanceControl_Update(void)
     if(fabs(BalanceState.roll) > MAX_TILT_ANGLE ||
        fabs(BalanceState.pitch) > MAX_TILT_ANGLE ) {
         //停止前进但保持直立平衡
-        BalanceState.balance_enabled = 0;
+        TB6612_StopAllMotors();
     }
 
     // 障碍物检测

@@ -23,6 +23,9 @@
 #define MOTOR_A_PWM_CHANNEL TIM_CHANNEL_1  // PWMA
 #define MOTOR_B_PWM_CHANNEL TIM_CHANNEL_2  // PWMB
 
+// 电机最大速度
+#define MOTOR_MAX_SPEED     950
+
 // 电机方向枚举
 typedef enum {
     MOTOR_FORWARD = 0,
