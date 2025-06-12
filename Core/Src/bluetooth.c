@@ -144,7 +144,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         Bluetooth_SendMessage("Balance Stopped\r\n");
     }
     else if(strcmp(cmd, BT_CMD_FORWARD) == 0) {
-        float speed = 0.05f; // 默认速度
+        float speed = 0.03f; // 默认速度，这里也修改了一下。从0.05改成了0.03
         if(param != NULL) {
             speed = atof(param);
         }
@@ -152,7 +152,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         Bluetooth_SendMessage("Moving Forward\r\n");
     }
     else if(strcmp(cmd, BT_CMD_BACKWARD) == 0) {
-        float speed = -0.05f; // 默认速度
+        float speed = -0.03f; // 默认速度
         if(param != NULL) {
             speed = -atof(param);
         }
@@ -160,7 +160,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         Bluetooth_SendMessage("Moving Backward\r\n");
     }
     else if(strcmp(cmd, BT_CMD_LEFT) == 0) {
-        float L_YawRate = 15.0f; // 默认角速度
+        float L_YawRate = 50.0f; // 默认角速度
         if(param!= NULL) {
             L_YawRate = abs(atof(param));    
         }
@@ -168,7 +168,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         Bluetooth_SendMessage("Turning Left\r\n");
     }
     else if(strcmp(cmd, BT_CMD_RIGHT) == 0) {
-        float R_YawRate = -15.0f; // 默认角速度
+        float R_YawRate = -50.0f; // 默认角速度
         if(param!= NULL) {
             R_YawRate = -abs(atof(param));
         }
@@ -181,7 +181,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
     else if(strcmp(cmd, BT_CMD_RESET) == 0) {
         BalanceControl_Enable(0);
         BalanceControl_SetTargetSpeed(0);
-        BalanceControl_SetTargetAngle(0);
+        BalanceControl_SetTargetAngle(BALANCE_TARGET_ANGLE); // 修改1，设置为目标值
         BalanceControl_SetTargetYawRate(0);
         MotorEncoder_Reset();
         Bluetooth_SendMessage("System Reset\r\n");
@@ -202,18 +202,53 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
             Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
         }
     }
-    else if(strcmp(cmd, BT_CMD_PID) == 0) {
-        // PID参数设置 (格式: PID KP KI KD)
+    else if(strcmp(cmd, BT_CMD_ANGLEPID) == 0) {
+        // ANGLE PID参数设置 (格式: ANGLEPID KP KI KD)
         if(param != NULL) {
             float kp, ki, kd;
             if(sscanf(param, "%f %f %f", &kp, &ki, &kd) == 3) {
                 AnglePID.Kp = kp;
                 AnglePID.Ki = ki;
                 AnglePID.Kd = kd;
-                snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE, "PID set: Kp=%.2f Ki=%.2f Kd=%.2f\r\n", kp, ki, kd);
+                sprintf((char*)Bluetooth.tx_buffer, "ANGLE PID set: Kp=%.2f Ki=%.2f Kd=%.2f\r\n", kp, ki, kd);
                 Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
             }
         }
+    }
+    else if(strcmp(cmd, BT_CMD_SPEEDPID) == 0) {
+        // SPEED PID参数设置 (格式: SPEEDPID KP KI KD)
+        if(param != NULL) {
+            float kp, ki, kd;
+            if(sscanf(param, "%f %f %f", &kp, &ki, &kd) == 3) {
+                SpeedPID.Kp = kp;
+                SpeedPID.Ki = ki;
+                SpeedPID.Kd = kd;
+                sprintf((char*)Bluetooth.tx_buffer, "SPEED PID set: Kp=%.2f Ki=%.2f Kd=%.2f\r\n", kp, ki, kd);
+                Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
+            }
+        }
+    }
+    else if(strcmp(cmd, BT_CMD_TURNPID) == 0) {
+        // TURN PID参数设置 (格式: TURNPID KP KI KD)
+        if(param != NULL) {
+            float kp, ki, kd;
+            if(sscanf(param, "%f %f %f", &kp, &ki, &kd) == 3) {
+                TurnPID.Kp = kp;
+                TurnPID.Ki = ki;
+                TurnPID.Kd = kd;
+                sprintf((char*)Bluetooth.tx_buffer, "TURN PID set: Kp=%.2f Ki=%.2f Kd=%.2f\r\n", kp, ki, kd);
+                Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
+            }
+        }
+    }
+    else if(strcmp(cmd, BT_CMD_PID) == 0) {
+        // 获取所有PID参数
+        sprintf((char*)Bluetooth.tx_buffer,
+                "PID: Angle(Kp=%.2f Ki=%.2f Kd=%.2f) Speed(Kp=%.2f Ki=%.2f Kd=%.2f) Turn(Kp=%.2f Ki=%.2f Kd=%.2f)\r\n",
+                AnglePID.Kp, AnglePID.Ki, AnglePID.Kd,
+                SpeedPID.Kp, SpeedPID.Ki, SpeedPID.Kd,
+                TurnPID.Kp, TurnPID.Ki, TurnPID.Kd);
+        Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
     }
     else if(strcmp(cmd, BT_CMD_VISION) == 0) {
         // 视觉模式设置 (格式: VISION 0/1/2)
@@ -284,7 +319,16 @@ void Bluetooth_SendStatus(void)
     const char* vision_mode_name = (state->vision_mode <= 2) ? vision_modes[state->vision_mode] : "UNKNOWN";
     
     // 发送基本状态信息
-    snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE,
+    // 如果视觉模式开启，发送视觉数据
+    if(state->vision_mode > 0) {
+        snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE,
+                "VISION: ErrorX=%.3f ErrorY=%.3f LineDetected=%d ObjectDetected=%d\r\n",
+                state->vision_error_x, state->vision_error_y,
+                K230_Vision_IsLineDetected(), K230_Vision_IsObjectDetected());
+        Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
+    }
+    else{
+        snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE,
             "STATUS: Pitch=%.2f Roll=%.2f Speed=%.2f Distance=%.1fcm Enabled=%d Vision=%s YawRate=%.4f Target_YawRate=%.4f\r\n",
             state->pitch, state->roll,
             (state->left_speed + state->right_speed) / 2.0f,
@@ -293,14 +337,6 @@ void Bluetooth_SendStatus(void)
             vision_mode_name,
             state->yaw_rate,
             state->target_yaw_rate);
-    Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
-    
-    // 如果视觉模式开启，发送视觉数据
-    if(state->vision_mode > 0) {
-        snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE,
-                "VISION: ErrorX=%.3f ErrorY=%.3f LineDetected=%d ObjectDetected=%d\r\n",
-                state->vision_error_x, state->vision_error_y,
-                K230_Vision_IsLineDetected(), K230_Vision_IsObjectDetected());
         Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
     }
 }

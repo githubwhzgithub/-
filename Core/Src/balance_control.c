@@ -224,7 +224,7 @@ void BalanceControl_Update(void)
     // 检查是否需要紧急停止 - 主要检查roll值（平衡控制轴）
     if(fabs(BalanceState.roll) > MAX_TILT_ANGLE ||
        fabs(BalanceState.pitch) > MAX_TILT_ANGLE ) {
-        //停止前进但保持直立平衡
+        //停止前进
         TB6612_StopAllMotors();
     }
 
@@ -259,11 +259,9 @@ void BalanceControl_Update(void)
         if(turn_output > TURN_PID_MAX_OUTPUT) turn_output = TURN_PID_MAX_OUTPUT;
         if(turn_output < -TURN_PID_MAX_OUTPUT) turn_output = -TURN_PID_MAX_OUTPUT;
     } else {
-        // 非视觉模式下，基于Z轴角速度进行转向控制
-        if(BalanceState.target_yaw_rate != 0.0f) {
-            TurnPID.setpoint = BalanceState.target_yaw_rate; // 使用目标偏航角速度
-            turn_output = BalanceControl_PID_Update(&TurnPID, BalanceState.yaw_rate, dt);
-        }
+        // 非视觉模式下，基于Z轴角速度进行转向控制;注意这里删除了if语句
+        TurnPID.setpoint = BalanceState.target_yaw_rate; // 使用目标偏航角速度
+        turn_output = BalanceControl_PID_Update(&TurnPID, BalanceState.yaw_rate, dt);
         
     }
 

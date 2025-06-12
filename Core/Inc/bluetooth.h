@@ -23,7 +23,12 @@
 #define BT_CMD_RESET        "RESET"     // 重置系统
 #define BT_CMD_SPEED        "SPEED"     // 设置速度
 #define BT_CMD_ANGLE        "ANGLE"     // 设置角度
-#define BT_CMD_PID          "PID"       // 设置PID参数
+
+#define BT_CMD_ANGLEPID     "ANGLEPID"       // 设置PID参数
+#define BT_CMD_SPEEDPID     "SPEEDPID"       // 设置速度PID参数
+#define BT_CMD_TURNPID      "TURNPID"       // 设置转向PID参数
+#define BT_CMD_PID          "PID"           // 获取所有PID参数
+
 #define BT_CMD_VISION       "VISION"    // 设置视觉模式
 #define BT_CMD_LINE         "LINE"      // 循迹模式
 #define BT_CMD_TRACK        "TRACK"     // 物体追踪模式

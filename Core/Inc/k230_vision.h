@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 /* K230视觉模块通讯协议定义 */
-#define K230_BUF_LEN_MAX           (100)    // 接收缓冲区最大长度
+#define K230_BUF_LEN_MAX           (200)    // 接收缓冲区最大长度
 #define K230_HEAD                  (0x24)  // 协议头 '$'
 #define K230_TAIL                  (0x23)  // 协议尾 '#'
 
@@ -46,13 +46,10 @@ typedef struct {
 /* 工作模式定义 */
 typedef enum {
     K230_MODE_IDLE = 0,               // Idle mode
-    K230_MODE_LINE_TRACKING = 1,      // Line tracking mode (mode 1 in vision_tracker.py)
-    K230_MODE_OBJECT_TRACKING = 2,    // Object tracking mode (mode 2 in vision_tracker.py)
+    K230_MODE_LINE_TRACK = 1,      // Line tracking mode (mode 1 in vision_tracker.py)
+    K230_MODE_OBJECT_TRACK = 2,    // Object tracking mode (mode 2 in vision_tracker.py)
 } K230_Mode_t;
 
-/* Legacy mode definitions for compatibility */
-#define K230_MODE_LINE_TRACK    K230_MODE_LINE_TRACKING
-#define K230_MODE_OBJECT_TRACK  K230_MODE_OBJECT_TRACKING
 
 /* 函数声明 */
 void K230_Vision_Init(UART_HandleTypeDef *huart);
@@ -74,3 +71,4 @@ uint8_t K230_Vision_IsObjectDetected(void);    // 检查是否检测到物体
 float K230_GetObjectDistance(void);     // 根据物体大小估算距离
 
 #endif /* __K230_VISION_H__ */
+

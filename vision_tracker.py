@@ -801,7 +801,7 @@ def main():
         tracker = VisionTracker()
 
         # 设置默认模式和参数 / Set default mode and parameters
-        tracker.set_mode(Config.MODE_LINE_TRACKING)  # 默认循迹模式
+        tracker.set_mode(Config.MODE_OBJECT_TRACKING)  # 默认循迹模式
         tracker.set_line_tracking_color('black')     # 默认追踪黑色线条
         tracker.set_object_detection_color(0)        # 默认检测红色物体
 

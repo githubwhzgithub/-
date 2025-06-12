@@ -328,7 +328,7 @@ static void K230_ParseData(uint8_t *data_buf, uint8_t length)
     // 新的vision_tracker.py使用YbProtocol发送数据
     // 循迹模式数据格式: $length,1,center_x,angle,speed_percentage,found#
     // 物体检测模式数据格式: $length,1,center_x,center_y,width,found#
-    if (func_id == K230_MODE_LINE_TRACKING && data_index >= 6)
+    if (func_id == K230_MODE_LINE_TRACK && data_index >= 6)
     {
         k230_vision_data.line_track.line_x = values[2];        // 线条中心X坐标
         k230_vision_data.line_track.line_y = 240;              // 固定Y坐标(图像中心)
@@ -339,7 +339,7 @@ static void K230_ParseData(uint8_t *data_buf, uint8_t length)
         k230_vision_data.line_track.valid = 1;
         k230_vision_data.line_track.last_update = current_time;
     }
-    else if (func_id == K230_MODE_OBJECT_TRACKING && data_index >= 6)
+    else if (func_id == K230_MODE_OBJECT_TRACK && data_index >= 6)
     {
         // 物体追踪数据格式: $length,1,center_x,center_y,width,found#
         k230_vision_data.object_track.obj_x = values[2];       // 物体中心X坐标
