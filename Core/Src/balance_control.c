@@ -229,11 +229,6 @@ void BalanceControl_Update(void)
         TB6612_StopAllMotors();
     }
 
-    // 障碍物检测
-    if(BalanceState.obstacle_detected) {
-        BalanceState.target_speed = 0.0f;           //停止前进
-    }
-
     // 如果平衡控制未使能，停止电机
     if(!BalanceState.balance_enabled) {
         TB6612_StopAllMotors();
@@ -255,7 +250,7 @@ void BalanceControl_Update(void)
     else{
         // 设置追踪速度
         if(K230_Vision_IsObjectDetected() || K230_Vision_IsLineDetected()){
-            BalanceState.target_speed = 0.04f;
+            BalanceState.target_speed = 0.035f;
         }else{
             BalanceState.target_speed = 0.0f;
         }
@@ -354,15 +349,47 @@ void BalanceControl_EmergencyStop(void)
  */
 void BalanceControl_ObstacleAvoidance(void)
 {
-    if(BalanceState.distance_front < MIN_OBSTACLE_DISTANCE) {
-        BalanceState.obstacle_detected = 1;
+    static uint8_t is_avoiding = 0; // 避障状态标志
+    static float current_speed = 0.0f;  //储存当前速度
+    static float current_yawrate = 0.0f; //储存当前角速度
+    static uint8_t i , j = 0;   //确保只储存一次状态值
 
-        // 如果正在前进，则停止
-        if(BalanceState.target_speed > 0) {
-            BalanceState.target_speed = 0;
+    if (is_avoiding) {
+        // 如果正在避障（转向中）
+        if (BalanceState.distance_front > OBSTACLE_AVOIDANCE_CLEAR_DISTANCE) {
+            // 距离大于清除距离，停止转向，清除避障状态
+            BalanceState.target_yaw_rate = 0.0f;
+            BalanceState.obstacle_detected = 0;
+            is_avoiding = 0;
+
+            // 恢复转弯之前的状态
+            j += 1;
+            if(j == 1){
+                BalanceState.target_speed = current_speed;
+                BalanceState.target_yaw_rate = current_yawrate;
+            }
+        } else {
+            // 继续转向
+            BalanceState.target_speed = 0.0f; // 确保停止前进
+            BalanceState.target_yaw_rate = TURN_RATE; // 保持转向
+            BalanceState.obstacle_detected = 1;
         }
     } else {
-        BalanceState.obstacle_detected = 0;
+        // 如果未在避障状态
+        if (BalanceState.distance_front < MIN_OBSTACLE_DISTANCE) {
+            // 检测到障碍物，进入避障状态
+            BalanceState.obstacle_detected = 1;
+            is_avoiding = 1;
+            i += 1;
+            if(i == 1){
+                current_speed = BalanceState.target_speed;  //记录转弯避障前速度
+                current_yawrate = BalanceState.target_yaw_rate; //记录转弯避障前角速度
+            }
+            BalanceState.target_speed = 0.0f; // 停止前进
+            BalanceState.target_yaw_rate = TURN_RATE; // 开始转向
+        } else {
+            BalanceState.obstacle_detected = 0;
+        }
     }
 }
 
