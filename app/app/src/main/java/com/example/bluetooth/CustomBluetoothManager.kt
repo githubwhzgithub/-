@@ -20,6 +20,13 @@ import java.io.OutputStream
 import java.util.*
 import java.util.regex.Pattern
 
+// 视觉状态数据类
+data class VisionStatus(
+    val mode: String = "OFF",
+    val errorX: Float = 0f,
+    val errorY: Float = 0f
+)
+
 // 数据类用于存储解析后的状态信息
 data class RobotStatus(
     val pitch: Float = 0f,
@@ -27,11 +34,14 @@ data class RobotStatus(
     val speed: Float = 0f,
     val distance: Float = 0f,
     val enabled: Boolean = false,
-    val visionMode: String = "OFF",
-    val visionErrorX: Float = 0f,
-    val visionErrorY: Float = 0f,
+    val visionStatus: VisionStatus? = null,
+    // val visionMode: String = "OFF",
+    // val visionErrorX: Float = 0f,
+    // val visionErrorY: Float = 0f,
     val lineDetected: Boolean = false,
     val objectDetected: Boolean = false,
+    val yawRate: Float = 0f,
+    val targetYawRate: Float = 0f,
     val lastUpdateTime: Long = System.currentTimeMillis()
 )
 
@@ -268,6 +278,11 @@ class CustomBluetoothManager(private val context: Context) {
     fun disconnect() {
         readJob?.cancel()
         
+        // 清理消息缓冲区
+        synchronized(messageBuffer) {
+            messageBuffer.clear()
+        }
+        
         try {
             inputStream?.close()
             outputStream?.close()
@@ -284,6 +299,9 @@ class CustomBluetoothManager(private val context: Context) {
         _connectionState.value = ConnectionState.DISCONNECTED
     }
     
+    // 消息缓冲区，用于处理不完整的消息
+    private val messageBuffer = StringBuilder()
+    
     /**
      * 开始监听数据
      */
@@ -295,12 +313,15 @@ class CustomBluetoothManager(private val context: Context) {
                 try {
                     val bytesRead = inputStream?.read(buffer) ?: 0
                     if (bytesRead > 0) {
-                        val receivedMessage = String(buffer, 0, bytesRead)
-                        val trimmedMessage = receivedMessage.trim()
-                        _receivedData.value = trimmedMessage
+                        val receivedData = String(buffer, 0, bytesRead)
                         
-                        // 解析状态消息
-                        parseStatusMessage(trimmedMessage)
+                        // 将接收到的数据添加到缓冲区
+                        synchronized(messageBuffer) {
+                            messageBuffer.append(receivedData)
+                            
+                            // 处理缓冲区中的完整消息行
+                            processBufferedMessages()
+                        }
                     }
                 } catch (e: IOException) {
                     if (isConnected) {
@@ -312,24 +333,54 @@ class CustomBluetoothManager(private val context: Context) {
         }
     }
     
-    // 解析状态消息
-    private fun parseStatusMessage(message: String) {
+    /**
+     * 处理缓冲区中的完整消息
+     */
+    private fun processBufferedMessages() {
+        val bufferContent = messageBuffer.toString()
+        val lines = bufferContent.split("\n")
+        
+        // 处理除最后一行外的所有完整行
+        for (i in 0 until lines.size - 1) {
+            val line = lines[i].trim()
+            if (line.isNotEmpty()) {
+                _receivedData.value = line
+                parseStatusMessage(line)
+            }
+        }
+        
+        // 保留最后一行（可能不完整）在缓冲区中
+        messageBuffer.clear()
+        val lastLine = lines.lastOrNull()
+        if (!lastLine.isNullOrEmpty() && !bufferContent.endsWith("\n")) {
+            messageBuffer.append(lastLine)
+        }
+        
+        // 防止缓冲区过大
+        if (messageBuffer.length > 2048) {
+            messageBuffer.clear()
+        }
+    }
+    
+    // 解析状态消息（单行处理）
+    private fun parseStatusMessage(line: String) {
         try {
-            val lines = message.split("\n")
             var currentStatus = _robotStatus.value
             
-            for (line in lines) {
-                when {
-                    line.startsWith("STATUS:") -> {
-                        currentStatus = parseBasicStatus(line, currentStatus)
-                    }
-                    line.startsWith("VISION:") -> {
-                        currentStatus = parseVisionStatus(line, currentStatus)
-                    }
+            when {
+                line.startsWith("STATUS:") -> {
+                    currentStatus = parseBasicStatus(line, currentStatus)
+                    _robotStatus.value = currentStatus.copy(lastUpdateTime = System.currentTimeMillis())
+                }
+                line.startsWith("VISION: MODE") -> {
+                    currentStatus = parseK230VisionStatus(line, currentStatus)
+                    _robotStatus.value = currentStatus.copy(lastUpdateTime = System.currentTimeMillis())
+                }
+                line.startsWith("VISION:") -> {
+                    currentStatus = parseVisionStatus(line, currentStatus)
+                    _robotStatus.value = currentStatus.copy(lastUpdateTime = System.currentTimeMillis())
                 }
             }
-            
-            _robotStatus.value = currentStatus.copy(lastUpdateTime = System.currentTimeMillis())
         } catch (e: Exception) {
             // 解析失败时不更新状态
         }
@@ -338,20 +389,24 @@ class CustomBluetoothManager(private val context: Context) {
     // 解析基本状态信息
     private fun parseBasicStatus(line: String, currentStatus: RobotStatus): RobotStatus {
         try {
-            // STATUS: Pitch=0.12 Roll=-0.05 Speed=150.00 Distance=25.3cm Enabled=1 Vision=LINE
+            // STATUS: Pitch=0.12 Roll=-0.05 Speed=150.00 Distance=25.3cm Enabled=1 Vision=LINE YawRate=0.1234 Target_YawRate=0.5678
             val pitchPattern = Pattern.compile("Pitch=([+-]?\\d*\\.?\\d+)")
             val rollPattern = Pattern.compile("Roll=([+-]?\\d*\\.?\\d+)")
             val speedPattern = Pattern.compile("Speed=([+-]?\\d*\\.?\\d+)")
             val distancePattern = Pattern.compile("Distance=([+-]?\\d*\\.?\\d+)")
             val enabledPattern = Pattern.compile("Enabled=([01])")
             val visionPattern = Pattern.compile("Vision=(\\w+)")
+            val yawRatePattern = Pattern.compile("YawRate=([+-]?\\d*\\.?\\d+)")
+            val targetYawRatePattern = Pattern.compile("Target_YawRate=([+-]?\\d*\\.?\\d+)")
             
             val pitch = pitchPattern.matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() ?: currentStatus.pitch else currentStatus.pitch }
             val roll = rollPattern.matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() ?: currentStatus.roll else currentStatus.roll }
             val speed = speedPattern.matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() ?: currentStatus.speed else currentStatus.speed }
             val distance = distancePattern.matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() ?: currentStatus.distance else currentStatus.distance }
             val enabled = enabledPattern.matcher(line).let { if (it.find()) it.group(1) == "1" else currentStatus.enabled }
-            val visionMode = visionPattern.matcher(line).let { if (it.find()) it.group(1) ?: currentStatus.visionMode else currentStatus.visionMode }
+            val visionMode = visionPattern.matcher(line).let { if (it.find()) it.group(1) ?: (currentStatus.visionStatus?.mode ?: "OFF") else (currentStatus.visionStatus?.mode ?: "OFF") }
+            val yawRate = yawRatePattern.matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() ?: currentStatus.yawRate else currentStatus.yawRate }
+            val targetYawRate = targetYawRatePattern.matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() ?: currentStatus.targetYawRate else currentStatus.targetYawRate }
             
             return currentStatus.copy(
                 pitch = pitch,
@@ -359,14 +414,47 @@ class CustomBluetoothManager(private val context: Context) {
                 speed = speed,
                 distance = distance,
                 enabled = enabled,
-                visionMode = visionMode
+                yawRate = yawRate,
+                targetYawRate = targetYawRate,
+                visionStatus = VisionStatus(
+                    mode = visionMode,
+                    errorX = currentStatus.visionStatus?.errorX ?: 0f,
+                    errorY = currentStatus.visionStatus?.errorY ?: 0f
+                )
             )
         } catch (e: Exception) {
             return currentStatus
         }
     }
     
-    // 解析视觉状态信息
+    // 解析K230视觉状态信息 (新格式: VISION: MODE %s ErrorX=%.3f ErrorY=%.3f)
+    private fun parseK230VisionStatus(line: String, currentStatus: RobotStatus): RobotStatus {
+        try {
+            // VISION: MODE LINE ErrorX=0.123 ErrorY=-0.045
+            val k230Pattern = Pattern.compile("VISION: MODE (\\w+) ErrorX=([+-]?\\d*\\.?\\d+) ErrorY=([+-]?\\d*\\.?\\d+)")
+            val matcher = k230Pattern.matcher(line)
+            
+            if (matcher.find()) {
+                val mode = matcher.group(1) ?: "OFF"
+                val errorX = matcher.group(2)?.toFloatOrNull() ?: 0f
+                val errorY = matcher.group(3)?.toFloatOrNull() ?: 0f
+                
+                return currentStatus.copy(
+                    visionStatus = VisionStatus(
+                        mode = mode,
+                        errorX = errorX,
+                        errorY = errorY
+                    )
+                )
+            }
+            
+            return currentStatus
+        } catch (e: Exception) {
+            return currentStatus
+        }
+    }
+    
+    // 解析视觉状态信息 (旧格式)
     private fun parseVisionStatus(line: String, currentStatus: RobotStatus): RobotStatus {
         try {
             // VISION: ErrorX=0.123 ErrorY=-0.045 LineDetected=1 ObjectDetected=0
@@ -375,14 +463,17 @@ class CustomBluetoothManager(private val context: Context) {
             val lineDetectedPattern = Pattern.compile("LineDetected=([01])")
             val objectDetectedPattern = Pattern.compile("ObjectDetected=([01])")
             
-            val errorX = errorXPattern.matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() ?: currentStatus.visionErrorX else currentStatus.visionErrorX }
-            val errorY = errorYPattern.matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() ?: currentStatus.visionErrorY else currentStatus.visionErrorY }
+            val errorX = errorXPattern.matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() ?: (currentStatus.visionStatus?.errorX ?: 0f) else (currentStatus.visionStatus?.errorX ?: 0f) }
+            val errorY = errorYPattern.matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() ?: (currentStatus.visionStatus?.errorY ?: 0f) else (currentStatus.visionStatus?.errorY ?: 0f) }
             val lineDetected = lineDetectedPattern.matcher(line).let { if (it.find()) it.group(1) == "1" else currentStatus.lineDetected }
             val objectDetected = objectDetectedPattern.matcher(line).let { if (it.find()) it.group(1) == "1" else currentStatus.objectDetected }
             
             return currentStatus.copy(
-                visionErrorX = errorX,
-                visionErrorY = errorY,
+                visionStatus = VisionStatus(
+                    mode = currentStatus.visionStatus?.mode ?: "OFF",
+                    errorX = errorX,
+                    errorY = errorY
+                ),
                 lineDetected = lineDetected,
                 objectDetected = objectDetected
             )
@@ -416,8 +507,8 @@ class CustomBluetoothManager(private val context: Context) {
      */
     suspend fun startBalance() = sendCommand("START")
     suspend fun stopBalance() = sendCommand("STOP")
-    suspend fun moveForward(speed: Float = 0.2f) = sendCommand("FORWARD $speed")
-    suspend fun moveBackward(speed: Float = 0.2f) = sendCommand("BACKWARD $speed")
+    suspend fun moveForward(speed: Float = 0.05f) = sendCommand("FORWARD $speed")
+    suspend fun moveBackward(speed: Float = 0.05f) = sendCommand("BACKWARD $speed")
     suspend fun turnLeft() = sendCommand("LEFT")
     suspend fun turnRight() = sendCommand("RIGHT")
     suspend fun getStatus() = sendCommand("STATUS")

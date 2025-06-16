@@ -71,9 +71,9 @@ typedef struct {
  */
 #define BALANCE_TARGET_ANGLE                  -5.4f    // 目标平衡角度（度）- 平衡车的理想直立角度
 #define MAX_TILT_ANGLE                        40.0f    // 最大倾斜角度（度）- 超过此角度触发保护
-#define MIN_OBSTACLE_DISTANCE                 30.0f    // 最小障碍物距离（厘米）- 触发避障的距离阈值
-#define OBSTACLE_AVOIDANCE_CLEAR_DISTANCE     300.0f    // 避障清除距离（厘米）- 障碍物远于此距离时停止避障行为
-#define TURN_RATE                             30.0f    // 默认转向速率（度/秒）
+#define MIN_OBSTACLE_DISTANCE                 50.0f    // 最小障碍物距离（厘米）- 触发避障的距离阈值
+#define OBSTACLE_AVOIDANCE_CLEAR_DISTANCE     60.0f    // 避障清除距离（厘米）- 障碍物远于此距离时停止避障行为
+#define TURN_RATE                             50.0f    // 默认转向速率（度/秒）
 
 /**
  * @brief PID控制器参数定义

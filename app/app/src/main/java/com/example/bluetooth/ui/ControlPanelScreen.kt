@@ -174,9 +174,7 @@ fun ControlPanelScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* Settings */ }) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
-                    }
+                    // 右上角设置部分已移除
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
@@ -196,47 +194,33 @@ fun ControlPanelScreen(
                 ConnectionStatusCard(isConnected = isConnected)
             }
             
-            // 机器人状态显示卡片
+            // 机器人状态显示卡片 - 根据蓝牙数据解析显示
             item {
                 RobotStatusCard(robotStatus = robotStatus)
             }
             
-            // HC-05蓝牙消息显示卡片
+            // GO按钮 - 根据蓝牙协议添加
             item {
-                BluetoothMessageCard(
-                    receivedData = receivedData
-                )
-            }
-            
-            // 数据显示卡片
-            if (receivedData.isNotEmpty()) {
-                item {
-                    DataDisplayCard(
-                        data = receivedData,
-                        title = "Car Status"
-                    )
-                }
-            }
-            
-            // 角度控制卡片
-            item {
-                AngleControlCard(
-                    currentAngle = currentAngle,
-                    onAngleChange = { angle ->
-                        currentAngle = angle
-                        setAngle(angle)
+                GoButtonCard(
+                    onSendGo = {
+                        scope.launch {
+                            bluetoothManager.sendCommand("GO")
+                        }
                     }
                 )
             }
             
-            // 系统状态控制卡片
+            // START按钮 - 开始平衡控制
             item {
-                SystemStatusCard(
+                StartButtonCard(
                     isBalanceEnabled = isBalanceEnabled,
-                    onToggleBalance = toggleBalance,
-                    onReset = resetSystem,
-                    onGetStatus = getStatus
+                    onToggleBalance = toggleBalance
                 )
+            }
+            
+            // 系统状态控制卡片 (只保留Reset按钮)
+            item {
+                SystemResetCard(onReset = resetSystem)
             }
             
             // 方向控制卡片
@@ -246,21 +230,17 @@ fun ControlPanelScreen(
                     onMoveBackward = moveBackward,
                     onTurnLeft = turnLeft,
                     onTurnRight = turnRight,
-                    onStop = stopMovement
+                    onStop = stopMovement,
+                    onStopRotation = {
+                        scope.launch {
+                            bluetoothManager.sendCommand("LEFT 0")
+                        }
+                    }
                 )
             }
             
-            // 速度控制卡片
+            // 视觉模式设置卡片 (速度控制条已移除)
             item {
-                SpeedControlCard(
-                    currentSpeed = currentSpeed,
-                    onSpeedChange = { speed ->
-                        currentSpeed = speed
-                        setSpeed(speed)
-                    }
-                )
-                
-                // 视觉模式设置卡片
                 VisionModeCard(
                     currentMode = visionMode,
                     onModeChange = setVisionMode,
@@ -269,6 +249,157 @@ fun ControlPanelScreen(
                     onDisableVision = disableVision
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun GoButtonCard(
+    onSendGo: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "连接控制",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Button(
+                onClick = onSendGo,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF4CAF50)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.CheckCircle,
+                        contentDescription = "Send GO",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "发送 GO 指令",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = "发送GO指令以建立与平衡车的连接",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+fun StartButtonCard(
+    isBalanceEnabled: Boolean,
+    onToggleBalance: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "平衡控制",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Button(
+                onClick = onToggleBalance,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isBalanceEnabled) {
+                        Color(0xFFF44336) // 红色 - 停止
+                    } else {
+                        Color(0xFF2196F3) // 蓝色 - 开始
+                    }
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = if (isBalanceEnabled) {
+                            Icons.Filled.Cancel
+                        } else {
+                            Icons.Filled.CheckCircle
+                        },
+                        contentDescription = if (isBalanceEnabled) "Stop Balance" else "Start Balance",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isBalanceEnabled) {
+                            "停止平衡"
+                        } else {
+                            "开始平衡"
+                        },
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = if (isBalanceEnabled) {
+                    "点击停止平衡车的平衡控制"
+                } else {
+                    "点击开始平衡车的平衡控制"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
@@ -552,11 +683,8 @@ fun AngleControlCard(
 }
 
 @Composable
-fun SystemStatusCard(
-    isBalanceEnabled: Boolean,
-    onToggleBalance: () -> Unit,
-    onReset: () -> Unit,
-    onGetStatus: () -> Unit
+fun SystemResetCard(
+    onReset: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -576,40 +704,11 @@ fun SystemStatusCard(
             )
             Spacer(modifier = Modifier.height(16.dp))
             
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            OutlinedButton(
+                onClick = onReset,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Button(
-                    onClick = onToggleBalance,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isBalanceEnabled) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        }
-                    )
-                ) {
-                    Text(
-                        text = if (isBalanceEnabled) "Disable Balance" else "Enable Balance",
-                        fontSize = 12.sp
-                    )
-                }
-                
-                OutlinedButton(
-                    onClick = onReset,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Reset", fontSize = 12.sp)
-                }
-                
-                OutlinedButton(
-                    onClick = onGetStatus,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Status", fontSize = 12.sp)
-                }
+                Text("Reset System", fontSize = 14.sp)
             }
         }
     }
@@ -621,7 +720,8 @@ fun DirectionControlCard(
     onMoveBackward: () -> Unit,
     onTurnLeft: () -> Unit,
     onTurnRight: () -> Unit,
-    onStop: () -> Unit
+    onStop: () -> Unit,
+    onStopRotation: () -> Unit // 新增停止转动回调
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -694,6 +794,17 @@ fun DirectionControlCard(
                     label = "Backward",
                     onClick = onMoveBackward
                 )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            // 新增停止转动按钮
+            Button(
+                onClick = onStopRotation,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary
+                )
+            ) {
+                Text("停止转动 ")
             }
         }
     }
@@ -777,7 +888,7 @@ fun RobotStatusCard(robotStatus: com.example.bluetooth.RobotStatus) {
                 columns = GridCells.Fixed(2),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.height(200.dp)
+                modifier = Modifier.height(280.dp)
             ) {
                 item {
                     StatusItem(
@@ -813,82 +924,19 @@ fun RobotStatusCard(robotStatus: com.example.bluetooth.RobotStatus) {
                 }
                 item {
                     StatusItem(
-                        label = "平衡状态",
-                        value = if (robotStatus.enabled) "启用" else "禁用",
-                        icon = if (robotStatus.enabled) Icons.Filled.CheckCircle else Icons.Filled.Cancel,
-                        color = if (robotStatus.enabled) Color(0xFF4CAF50) else Color(0xFFF44336)
+                        label = "偏航率",
+                        value = "${String.format("%.4f", robotStatus.yawRate)}",
+                        icon = Icons.Filled.RotateLeft,
+                        color = Color(0xFF9C27B0)
                     )
                 }
                 item {
                     StatusItem(
-                        label = "视觉模式",
-                        value = when (robotStatus.visionMode) {
-                            "OFF" -> "关闭"
-                            "LINE" -> "循迹"
-                            "TRACK" -> "追踪"
-                            else -> robotStatus.visionMode
-                        },
-                        icon = Icons.Filled.Visibility,
-                        color = when (robotStatus.visionMode) {
-                            "OFF" -> Color(0xFF9E9E9E)
-                            "LINE" -> Color(0xFF2196F3)
-                            "TRACK" -> Color(0xFF4CAF50)
-                            else -> MaterialTheme.colorScheme.primary
-                        }
+                        label = "目标偏航率",
+                        value = "${String.format("%.4f", robotStatus.targetYawRate)}",
+                        icon = Icons.Filled.RotateRight,
+                        color = Color(0xFF9C27B0)
                     )
-                }
-            }
-            
-            // 视觉数据（仅在视觉模式开启时显示）
-            if (robotStatus.visionMode != "OFF") {
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Text(
-                    text = "视觉数据",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.height(120.dp)
-                ) {
-                    item {
-                        StatusItem(
-                            label = "X轴误差",
-                            value = String.format("%.3f", robotStatus.visionErrorX),
-                            icon = Icons.Filled.SwapHoriz,
-                            color = Color(0xFF9C27B0)
-                        )
-                    }
-                    item {
-                        StatusItem(
-                            label = "Y轴误差",
-                            value = String.format("%.3f", robotStatus.visionErrorY),
-                            icon = Icons.Filled.SwapVert,
-                            color = Color(0xFF9C27B0)
-                        )
-                    }
-                    item {
-                        StatusItem(
-                            label = "线条检测",
-                            value = if (robotStatus.lineDetected) "检测到" else "未检测",
-                            icon = if (robotStatus.lineDetected) Icons.Filled.Timeline else Icons.Filled.HorizontalRule,
-                            color = if (robotStatus.lineDetected) Color(0xFF4CAF50) else Color(0xFF9E9E9E)
-                        )
-                    }
-                    item {
-                        StatusItem(
-                            label = "物体检测",
-                            value = if (robotStatus.objectDetected) "检测到" else "未检测",
-                            icon = if (robotStatus.objectDetected) Icons.Filled.CropFree else Icons.Filled.CropSquare,
-                            color = if (robotStatus.objectDetected) Color(0xFF4CAF50) else Color(0xFF9E9E9E)
-                        )
-                    }
                 }
             }
         }
@@ -1058,6 +1106,9 @@ fun VisionModeCard(
     }
 }
 
+// SpeedControlCard 已被移除
+
+/*
 @Composable
 fun SpeedControlCard(
     currentSpeed: Float,
@@ -1116,3 +1167,4 @@ fun SpeedControlCard(
         }
     }
 }
+*/

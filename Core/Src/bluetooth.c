@@ -324,9 +324,9 @@ void Bluetooth_SendStatus(void)
         K230_Vision_t* vision_data = K230_GetVisionData();
         
         snprintf((char*)Bluetooth.tx_buffer, BT_TX_BUFFER_SIZE,
-                "VISION: ErrorX=%.3f ErrorY=%.3f LineDetected=%d ObjectDetected=%d\r\n",
-                state->vision_error_x, state->vision_error_y,
-                K230_Vision_IsLineDetected(), K230_Vision_IsObjectDetected());
+                "VISION: MODE %s ErrorX=%.3f ErrorY=%.3f \r\n",
+                vision_mode_name,
+                state->vision_error_x, state->vision_error_y);
         Bluetooth_SendMessage((char*)Bluetooth.tx_buffer);
         }
     else{

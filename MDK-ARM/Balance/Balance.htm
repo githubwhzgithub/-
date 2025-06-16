@@ -3,7 +3,7 @@
 <title>Static Call Graph - [Balance\Balance.axf]</title></head>
 <body><HR>
 <H1>Static Call Graph for image Balance\Balance.axf</H1><HR>
-<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 5060960: Last Updated: Mon Jun 16 18:47:20 2025
+<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 5060960: Last Updated: Mon Jun 16 23:10:36 2025
 <BR><P>
 <H3>Maximum Stack Usage =       1352 bytes + Unknown(Functions without stacksize, Cycles, Untraceable Function Pointers)</H3><H3>
 Call chain for Maximum Stack Depth:</H3>
@@ -1068,13 +1068,11 @@ Global Symbols
 <LI><a href="#[5b]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[c6]"></a>Bluetooth_SendStatus</STRONG> (Thumb, 222 bytes, Stack size 120 bytes, bluetooth.o(i.Bluetooth_SendStatus))
-<BR><BR>[Stack]<UL><LI>Max Depth = 248 + Unknown Stack Size
+<P><STRONG><a name="[c6]"></a>Bluetooth_SendStatus</STRONG> (Thumb, 214 bytes, Stack size 112 bytes, bluetooth.o(i.Bluetooth_SendStatus))
+<BR><BR>[Stack]<UL><LI>Max Depth = 240 + Unknown Stack Size
 <LI>Call Chain = Bluetooth_SendStatus &rArr; __2snprintf &rArr; _printf_char_common &rArr; __printf
 </UL>
 <BR>[Calls]<UL><LI><a href="#[c2]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;Bluetooth_SendMessage
-<LI><a href="#[ad]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;K230_Vision_IsObjectDetected
-<LI><a href="#[9f]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;K230_Vision_IsLineDetected
 <LI><a href="#[9e]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;K230_GetVisionData
 <LI><a href="#[bf]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;BalanceControl_GetState
 <LI><a href="#[ab]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;__ARM_scalbnf
@@ -1696,14 +1694,12 @@ Global Symbols
 </UL>
 
 <P><STRONG><a name="[9f]"></a>K230_Vision_IsLineDetected</STRONG> (Thumb, 18 bytes, Stack size 0 bytes, k230_vision.o(i.K230_Vision_IsLineDetected))
-<BR><BR>[Called By]<UL><LI><a href="#[c6]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;Bluetooth_SendStatus
-<LI><a href="#[b5]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;BalanceControl_Update
+<BR><BR>[Called By]<UL><LI><a href="#[b5]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;BalanceControl_Update
 <LI><a href="#[9d]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;BalanceControl_LineTracking
 </UL>
 
 <P><STRONG><a name="[ad]"></a>K230_Vision_IsObjectDetected</STRONG> (Thumb, 18 bytes, Stack size 0 bytes, k230_vision.o(i.K230_Vision_IsObjectDetected))
-<BR><BR>[Called By]<UL><LI><a href="#[c6]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;Bluetooth_SendStatus
-<LI><a href="#[b5]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;BalanceControl_Update
+<BR><BR>[Called By]<UL><LI><a href="#[b5]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;BalanceControl_Update
 <LI><a href="#[ac]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;BalanceControl_ObjectTracking
 </UL>
 
