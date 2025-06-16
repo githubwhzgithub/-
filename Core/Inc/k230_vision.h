@@ -64,6 +64,7 @@ void K230_Vision_Update(void);
 void K230_SetMode(K230_Mode_t mode);
 K230_Vision_t* K230_GetVisionData(void);
 void K230_ClearData(void);
+void K230_SendCommand(char* cmd);
 
 /* 循迹相关函数 */
 float K230_GetLineAngleError(void);     // 获取线条角度偏差

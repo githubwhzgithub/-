@@ -140,8 +140,10 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         Bluetooth_SendMessage("Balance Started\r\n");
     }
     else if(strcmp(cmd, BT_CMD_STOP) == 0) {
-        BalanceControl_Enable(0);
+        float speed = 0.0f;
+        BalanceControl_SetTargetSpeed(speed);
         Bluetooth_SendMessage("Balance Stopped\r\n");
+        K230_SendCommand("STOP");
     }
     else if(strcmp(cmd, BT_CMD_FORWARD) == 0) {
         float speed = 0.05f; // 默认速度
@@ -150,6 +152,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         }
         BalanceControl_SetTargetSpeed(speed);
         Bluetooth_SendMessage("Moving Forward\r\n");
+        K230_SendCommand("FORWARD");
     }
     else if(strcmp(cmd, BT_CMD_BACKWARD) == 0) {
         float speed = -0.05f; // 默认速度
@@ -158,6 +161,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         }
         BalanceControl_SetTargetSpeed(speed);
         Bluetooth_SendMessage("Moving Backward\r\n");
+        K230_SendCommand("BACKWARD");
     }
     else if(strcmp(cmd, BT_CMD_LEFT) == 0) {
         float L_YawRate = 50.0f; // 默认角速度
@@ -185,6 +189,7 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         BalanceControl_SetTargetYawRate(0);
         MotorEncoder_Reset();
         Bluetooth_SendMessage("System Reset\r\n");
+        K230_SendCommand("RESET");
     }
     else if(strcmp(cmd, BT_CMD_SPEED) == 0) {
         if(param != NULL) {
@@ -296,11 +301,6 @@ static void Bluetooth_ExecuteCommand(const char* cmd, const char* param)
         } else {
             Bluetooth_SendMessage("Usage: COLOR <RED|GREEN|BLUE>\r\n");
         }
-    }
-    // 电机测试命令处理
-    else if(strncmp(cmd, "M", 1) == 0) {
-        // 所有以M开头的命令都转发给电机测试模块处理
-        MotorTest_ProcessCommand(cmd, param);
     }
     else {
         Bluetooth_SendMessage("Unknown Command\r\n");

@@ -9,9 +9,19 @@ from media.sensor import *
 from media.display import *
 from media.media import *
 import math
+from media.pyaudio import *
+import media.wave as wave
+from ybUtils.YbSpeaker import YbSpeaker
+import _thread
 
 from libs.YbProtocol import YbProtocol
 from ybUtils.YbUart import YbUart
+
+# 全局音频变量 / Global audio variables
+p = None  # PyAudio对象 / PyAudio object
+
+# 初始化扬声器 / Initialize speaker
+speaker = YbSpeaker()
 
 # 配置参数 / Configuration Parameters
 class Config:
@@ -20,6 +30,7 @@ class Config:
     DISPLAY_HEIGHT = 480
 
     # 工作模式 / Working modes
+    MODE_PAUSE = 0            # 暂停模式 / Pause mode
     MODE_LINE_TRACKING = 1    # 循迹模式 / Line tracking mode
     MODE_OBJECT_TRACKING = 2  # 物体追踪模式 / Object tracking mode
 
@@ -72,6 +83,24 @@ class Config:
     # 通信参数 / Communication Parameters
     UART_BAUDRATE = 115200   # 串口波特率 / UART baud rate
     SEND_INTERVAL = 50       # 发送间隔(ms) / Send interval (ms)
+    
+    # 音频参数 / Audio Parameters
+    AUDIO_ENABLED = True     # 音频启用标志 / Audio enabled flag
+    AUDIO_VOLUME = 100        # 音频音量(%) / Audio volume(%)
+    AUDIO_CHUNK_DIVIDER = 25 # 音频块大小除数(采样率/此值) / Audio chunk size divider(sample rate/this value)
+    
+    # 系统音效文件路径 / System sound file paths
+    SOUND_FILES = {
+        'start': '/sdcard/audio/system_start.wav',
+        'forward': '/sdcard/audio/cmd_forward.wav',
+        'backward': '/sdcard/audio/cmd_backward.wav',
+        'reset': '/sdcard/audio/cmd_reset.wav',
+        'obstacle': '/sdcard/audio/obstacle_detected.wav',
+        'stop': '/sdcard/audio/cmd_stop.wav',
+        'line': '/sdcard/audio/line_tracking.wav',
+        'object': '/sdcard/audio/object_tracking.wav',
+        'pause': '/sdcard/audio/idle_mode.wav'
+    }
 
     # 调试模式 / Debug Mode
     DEBUG_MODE = True
@@ -236,9 +265,13 @@ class VisionTracker:
         # 初始化串口通信 / Initialize UART communication
         self.uart = YbUart(baudrate=Config.UART_BAUDRATE)
         self.pto = YbProtocol()
+        
+        # 初始化音频系统 / Initialize audio system
+        self.speaker = YbSpeaker()
+        self.audio_enabled = Config.AUDIO_ENABLED  # 音频启用标志 / Audio enabled flag
 
         # 工作模式 / Working mode
-        self.current_mode = Config.MODE_LINE_TRACKING  # 默认循迹模式 / Default line tracking mode
+        self.current_mode = Config.MODE_PAUSE  # 默认暂停模式 / Default pause mode
 
         # 循迹模式状态变量 / Line tracking mode state variables
         self.current_line_color = 'black'  # 当前追踪颜色 / Current tracking color
@@ -285,14 +318,19 @@ class VisionTracker:
         设置工作模式 / Set working mode
 
         Args:
-            mode: 工作模式 (1: 循迹, 2: 物体检测) / Working mode (1: line tracking, 2: object detection)
+            mode: 工作模式 (0: 暂停, 1: 循迹, 2: 物体检测) / Working mode (0: pause, 1: line tracking, 2: object detection)
         """
-        if mode in [Config.MODE_LINE_TRACKING, Config.MODE_OBJECT_TRACKING]:
+        if mode in [Config.MODE_PAUSE, Config.MODE_LINE_TRACKING, Config.MODE_OBJECT_TRACKING]:
             self.current_mode = mode
             self.pid.reset()  # 重置PID控制器 / Reset PID controller
             if Config.DEBUG_MODE:
-                mode_name = "循迹模式" if mode == Config.MODE_LINE_TRACKING else "物体检测模式"
-                print(f"设置工作模式为: {mode_name} ")
+                if mode == Config.MODE_PAUSE:
+                    mode_name = "暂停模式"
+                elif mode == Config.MODE_LINE_TRACKING:
+                    mode_name = "循迹模式"
+                else:
+                    mode_name = "物体检测模式"
+                print(f"设置工作模式为: {mode_name} / Set working mode to: {mode_name}")
 
     def set_line_tracking_color(self, color_name):
         """
@@ -330,6 +368,120 @@ class VisionTracker:
         a_center = (lab_threshold[2] + lab_threshold[3]) // 2
         b_center = (lab_threshold[4] + lab_threshold[5]) // 2
         return image.lab_to_rgb((l_center, a_center, b_center))
+    
+    def enable_audio(self):
+        """
+        启用音频功能 / Enable audio functionality
+        """
+        self.audio_enabled = True
+        if Config.DEBUG_MODE:
+            print("音频功能已启用 / Audio functionality enabled")
+    
+    def disable_audio(self):
+        """
+        禁用音频功能 / Disable audio functionality
+        """
+        self.audio_enabled = False
+        if Config.DEBUG_MODE:
+            print("音频功能已禁用 / Audio functionality disabled")
+    
+    def play_audio(self, filename):
+        """
+        播放音频文件 / Play audio file
+        
+        Args:
+            filename: 音频文件路径 / Audio file path
+        
+        Returns:
+            bool: 播放是否成功 / Whether playback was successful
+        """
+        global p  # 声明使用全局变量p / Declare using global variable p
+        
+        if not self.audio_enabled:
+            if Config.DEBUG_MODE:
+                print("音频功能已禁用，跳过播放 / Audio disabled, skipping playback")
+            return False
+            
+        if p is None:
+            if Config.DEBUG_MODE:
+                print("PyAudio未初始化，无法播放音频 / PyAudio not initialized, cannot play audio")
+            return False
+            
+        try:
+            # 检查文件是否存在 / Check if file exists
+            try:
+                with open(filename, 'rb') as test_file:
+                    pass
+            except:
+                if Config.DEBUG_MODE:
+                    print(f"音频文件不存在: {filename} / Audio file not found: {filename}")
+                return False
+            
+            global p
+            speaker.enable()  # 启用扬声器 / Enable speaker
+            wf = wave.open(filename, 'rb')  # 打开wav文件 / Open wav file
+            
+            # 设置音频chunk值 - 每秒采样率的1/25
+            # Set audio chunk size - 1/25 of sampling rate per second
+            CHUNK = int(wf.get_framerate()/Config.AUDIO_CHUNK_DIVIDER)
+            
+            # 创建音频输出流 / Create audio output stream
+            # 设置的音频参数均为wave中获取到的参数 / Audio parameters are obtained from wave file
+            stream = p.open(format=p.get_format_from_width(wf.get_sampwidth()),  # 采样格式 / Sample format
+                        channels=wf.get_channels(),  # 声道数 / Number of channels
+                        rate=wf.get_framerate(),  # 采样率 / Sample rate
+                        output=True,  # 输出模式 / Output mode
+                        frames_per_buffer=CHUNK)  # 缓冲区大小 / Buffer size
+            
+            # 设置音频输出流的音量 / Set volume of audio output stream
+            stream.volume(vol=Config.AUDIO_VOLUME)
+            
+            # 从wav文件中读取第一帧数据 / Read first frame from wav file
+            data = wf.read_frames(CHUNK)
+            
+            # 循环读取并播放音频数据 / Loop to read and play audio data
+            while data:
+                stream.write(data)  # 将帧数据写入音频输出流 / Write frame data to audio output stream
+                data = wf.read_frames(CHUNK)  # 读取下一帧数据 / Read next frame
+         
+            # 清理资源 / Clean up resources
+            stream.stop_stream()  # 停止音频输出流 / Stop audio output stream
+            stream.close()  # 关闭音频输出流 / Close audio output stream
+            wf.close()  # 关闭wav文件 / Close wav file
+            
+            if Config.DEBUG_MODE:
+                print(f"音频播放完成: {filename} / Audio playback completed: {filename}")
+            
+            return True
+            
+        except Exception as e:
+            if Config.DEBUG_MODE:
+                print(f"音频播放失败: {e} / Audio playback failed: {e}")
+            return False
+        finally:
+            # 确保扬声器被禁用 / Ensure speaker is disabled
+            try:
+                self.speaker.disable()
+            except:
+                pass
+
+    
+    def play_system_sound(self, sound_type):
+        """
+        播放系统音效 / Play system sound
+        
+        Args:
+            sound_type: 音效类型 / Sound type
+        
+        Returns:
+            bool: 播放是否成功 / Whether playback was successful
+        """
+        if sound_type in Config.SOUND_FILES:
+            return self.play_audio(Config.SOUND_FILES[sound_type])
+        else:
+            if Config.DEBUG_MODE:
+                print(f"未知的音效类型: {sound_type} / Unknown sound type: {sound_type}")
+            return False
 
     def find_line(self, img):
         """
@@ -602,11 +754,21 @@ class VisionTracker:
             speed_factor: 速度因子 / Speed factor
         """
         # 绘制基本信息 / Draw basic information
-        mode_name = "循迹" if self.current_mode == Config.MODE_LINE_TRACKING else "物体检测"
+        if self.current_mode == Config.MODE_PAUSE:
+            mode_name = "暂停"
+        elif self.current_mode == Config.MODE_LINE_TRACKING:
+            mode_name = "循迹"
+        else:
+            mode_name = "物体检测"
+        
         img.draw_string_advanced(10, 10, 20, f"Mode: {mode_name}", color=(255, 255, 255))
         img.draw_string_advanced(10, 35, 20, f"FPS: {fps:.1f}", color=(255, 255, 255))
 
-        if self.current_mode == Config.MODE_LINE_TRACKING:
+        if self.current_mode == Config.MODE_PAUSE:
+            # 暂停模式信息 / Pause mode info
+            img.draw_string_advanced(10, 60, 20, "Status: PAUSED", color=(255, 0, 0))
+            img.draw_string_advanced(10, 85, 20, "No data transmission", color=(255, 255, 0))
+        elif self.current_mode == Config.MODE_LINE_TRACKING:
             # 循迹模式信息 / Line tracking mode info
             img.draw_string_advanced(10, 60, 20, f"Color: {self.current_line_color}", color=(255, 255, 255))
             img.draw_string_advanced(10, 85, 20, f"Found: {self.line_found}", color=(255, 255, 255))
@@ -653,10 +815,15 @@ class VisionTracker:
                 if cmd.startswith("MODE_"):
                     # 设置工作模式 / Set working mode
                     mode_str = cmd.split("_")[1]
-                    if mode_str == "1" or mode_str.upper() == "LINE":
+                    if mode_str == "0" or mode_str.upper() == "PAUSE":
+                        self.set_mode(Config.MODE_PAUSE)
+                        self.play_system_sound('pause')
+                    elif mode_str == "1" or mode_str.upper() == "LINE":
                         self.set_mode(Config.MODE_LINE_TRACKING)
+                        self.play_system_sound('line')
                     elif mode_str == "2" or mode_str.upper() == "OBJECT":
                         self.set_mode(Config.MODE_OBJECT_TRACKING)
+                        self.play_system_sound('object')
                 elif cmd.startswith("COLOR_"):
                     # 设置颜色 / Set color
                     if self.current_mode == Config.MODE_LINE_TRACKING:
@@ -671,10 +838,20 @@ class VisionTracker:
                         except ValueError:
                             pass
                 elif cmd == "RESET":
-                    self.pid.reset()
+                    self.play_system_sound('reset')
+                elif cmd == "STOP":
+                    self.play_system_sound('stop')
+                elif cmd == "FORWARD":
+                    self.play_system_sound('forward')
+                elif cmd == "BACKWARD":
+                    self.play_system_sound('backward')
+                elif cmd == "OBSTACLE":
+                    self.play_system_sound('obstacle')
                 elif cmd == "STATUS":
                     # 发送状态信息 / Send status information
-                    if self.current_mode == Config.MODE_LINE_TRACKING:
+                    if self.current_mode == Config.MODE_PAUSE:
+                        status_msg = f"{self.current_mode},PAUSED,False,{Config.DISPLAY_WIDTH // 2}"
+                    elif self.current_mode == Config.MODE_LINE_TRACKING:
                         status_msg = f"{self.current_mode},{self.current_line_color},{self.line_found},{self.line_center_x}"
                     else:
                         status_msg = f"{self.current_mode},{self.current_object_color_index},{self.object_found},{self.object_center_x}"
@@ -708,7 +885,15 @@ class VisionTracker:
                 self.process_uart_commands()
 
                 # 根据当前模式进行处理 / Process according to current mode
-                if self.current_mode == Config.MODE_LINE_TRACKING:
+                speed_factor = 0.0  # 默认速度因子 / Default speed factor
+                
+                if self.current_mode == Config.MODE_PAUSE:
+                    # 暂停模式 - 不进行图像处理和数据发送 / Pause mode - no image processing or data sending
+                    if Config.DEBUG_MODE:
+                        img.draw_string_advanced(Config.DISPLAY_WIDTH//2 - 100, Config.DISPLAY_HEIGHT//2, 30, 
+                                               "暂停模式 / PAUSE MODE", color=(255, 0, 0))
+                
+                elif self.current_mode == Config.MODE_LINE_TRACKING:
                     # 循迹模式 / Line tracking mode
                     center_x, angle, confidence, found = self.find_line(img)
 
@@ -731,7 +916,7 @@ class VisionTracker:
                     speed_percentage = int(speed_factor * 100)
                     self.send_data(center_x, angle, speed_percentage, found, speed_factor)
 
-                else:
+                else:  # Config.MODE_OBJECT_TRACKING
                     # 物体检测模式 / Object detection mode
                     center_x, center_y, width, height, found = self.find_object(img)
 
@@ -783,11 +968,15 @@ class VisionTracker:
 
             # 关闭显示 / Close display
             Display.deinit()
-            MediaManager.deinit()
+           
 
             # 关闭串口 / Close UART
             if hasattr(self, 'uart'):
                 self.uart.close()
+                
+            # 关闭音频系统 / Close audio system
+            if hasattr(self, 'speaker'):
+                self.speaker.disable()
 
         except Exception as e:
             if Config.DEBUG_MODE:
@@ -797,17 +986,24 @@ def main():
     """
     主函数 / Main function
     """
+    global p  # 声明使用全局变量p / Declare using global variable p
+    
     tracker = None
     try:
         print("初始化视觉追踪系统... / Initializing vision tracking system...")
+
+        CHUNK = int(24000*0.3)
+        p = PyAudio()
+        p.initialize(CHUNK)
 
         # 创建追踪器实例 / Create tracker instance
         tracker = VisionTracker()
 
         # 设置默认模式和参数 / Set default mode and parameters
-        tracker.set_mode(Config.MODE_OBJECT_TRACKING)  # 默认物体追踪模式
+        tracker.set_mode(Config.MODE_PAUSE)  # 默认暂停模式
         tracker.set_line_tracking_color('black')     # 默认追踪黑色线条
         tracker.set_object_detection_color(0)        # 默认检测红色物体
+        tracker.play_system_sound('start')
 
         # 运行系统 / Run system
         tracker.run()
@@ -816,8 +1012,14 @@ def main():
         print(f"系统错误: {e} / System error: {e}")
     finally:
         # 清理资源 / Cleanup resources
+        if p is not None:
+            try:
+                p.terminate()
+            except:
+                pass
         if tracker:
             tracker.cleanup()
+        MediaManager.deinit()
         print("系统已退出 / System exited")
 
 if __name__ == "__main__":

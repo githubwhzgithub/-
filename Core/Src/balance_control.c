@@ -217,7 +217,9 @@ void BalanceControl_Update(void)
     BalanceState.distance_front = Ultrasonic_GetDistance();
 
     // 障碍物检测
-    BalanceControl_ObstacleAvoidance();
+    if(BalanceState.vision_mode == 0){
+        BalanceControl_ObstacleAvoidance();
+    }
     
     // 视觉控制更新
     BalanceControl_VisionUpdate();
@@ -352,7 +354,6 @@ void BalanceControl_ObstacleAvoidance(void)
     static uint8_t is_avoiding = 0; // 避障状态标志
     static float current_speed = 0.0f;  //储存当前速度
     static float current_yawrate = 0.0f; //储存当前角速度
-    static uint8_t i , j = 0;   //确保只储存一次状态值
 
     if (is_avoiding) {
         // 如果正在避障（转向中）
@@ -361,13 +362,8 @@ void BalanceControl_ObstacleAvoidance(void)
             BalanceState.target_yaw_rate = 0.0f;
             BalanceState.obstacle_detected = 0;
             is_avoiding = 0;
-
-            // 恢复转弯之前的状态
-            j += 1;
-            if(j == 1){
-                BalanceState.target_speed = current_speed;
-                BalanceState.target_yaw_rate = current_yawrate;
-            }
+            BalanceState.target_speed = current_speed;
+            BalanceState.target_yaw_rate = current_yawrate;
         } else {
             // 继续转向
             BalanceState.target_speed = 0.0f; // 确保停止前进
@@ -380,11 +376,9 @@ void BalanceControl_ObstacleAvoidance(void)
             // 检测到障碍物，进入避障状态
             BalanceState.obstacle_detected = 1;
             is_avoiding = 1;
-            i += 1;
-            if(i == 1){
-                current_speed = BalanceState.target_speed;  //记录转弯避障前速度
-                current_yawrate = BalanceState.target_yaw_rate; //记录转弯避障前角速度
-            }
+            K230_SendCommand("OBSTACLE");
+            current_speed = BalanceState.target_speed;  //记录转弯避障前速度
+            current_yawrate = BalanceState.target_yaw_rate; //记录转弯避障前角速度
             BalanceState.target_speed = 0.0f; // 停止前进
             BalanceState.target_yaw_rate = TURN_RATE; // 开始转向
         } else {

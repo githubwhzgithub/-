@@ -149,6 +149,17 @@ void K230_SetMode(K230_Mode_t mode)
 }
 
 /**
+ * @brief 向K230发送指令
+ * @param cmd: 指令字符串
+ */
+void K230_SendCommand(char* cmd)
+{
+    char message[20];
+    sprintf(message, "%s\r\n", cmd);
+    HAL_UART_Transmit(&huart2, (uint8_t*)message, strlen(message), 100);
+}
+
+/**
  * @brief 获取视觉数据
  * @return 视觉数据结构指针
  */
