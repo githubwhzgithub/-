@@ -125,8 +125,10 @@ class CustomBluetoothManager(private val context: Context) {
         if (!hasBluetoothPermissions()) return
         
         bluetoothAdapter?.let { adapter ->
-            val devices = adapter.bondedDevices?.toList() ?: emptyList()
-            _pairedDevices.value = devices
+            if (hasBluetoothPermissions()) {
+                val devices = adapter.bondedDevices?.toList() ?: emptyList()
+                _pairedDevices.value = devices
+            }
         }
     }
     
@@ -143,7 +145,7 @@ class CustomBluetoothManager(private val context: Context) {
         }
         
         // 如果正在发现，先取消
-        if (bluetoothAdapter.isDiscovering) {
+        if (hasBluetoothPermissions() && bluetoothAdapter.isDiscovering) {
             bluetoothAdapter.cancelDiscovery()
         }
         
@@ -154,7 +156,11 @@ class CustomBluetoothManager(private val context: Context) {
         registerDiscoveryReceiver()
         
         // 开始发现新设备
-        return bluetoothAdapter.startDiscovery()
+        return if (hasBluetoothPermissions()) {
+            bluetoothAdapter.startDiscovery()
+        } else {
+            false
+        }
     }
     
     /**
@@ -228,21 +234,27 @@ class CustomBluetoothManager(private val context: Context) {
             _connectionState.value = ConnectionState.CONNECTING
             
             // 取消发现以提高连接速度
-            bluetoothAdapter?.cancelDiscovery()
+            if (hasBluetoothPermissions()) {
+                bluetoothAdapter?.cancelDiscovery()
+            }
             
             // 尝试标准连接方法
             var connected = false
             try {
-                bluetoothSocket = device.createRfcommSocketToServiceRecord(uuid)
-                bluetoothSocket?.connect()
-                connected = true
+                if (hasBluetoothPermissions()) {
+                    bluetoothSocket = device.createRfcommSocketToServiceRecord(uuid)
+                    bluetoothSocket?.connect()
+                    connected = true
+                }
             } catch (e: IOException) {
                 // 标准方法失败，尝试备用方法（适用于HC-05等模块）
                 try {
-                    val method = device.javaClass.getMethod("createRfcommSocket", Int::class.javaPrimitiveType)
-                    bluetoothSocket = method.invoke(device, 1) as BluetoothSocket
-                    bluetoothSocket?.connect()
-                    connected = true
+                    if (hasBluetoothPermissions()) {
+                        val method = device.javaClass.getMethod("createRfcommSocket", Int::class.javaPrimitiveType)
+                        bluetoothSocket = method.invoke(device, 1) as BluetoothSocket
+                        bluetoothSocket?.connect()
+                        connected = true
+                    }
                 } catch (e2: Exception) {
                     e2.printStackTrace()
                     throw e // 抛出原始异常

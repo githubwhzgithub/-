@@ -57,7 +57,7 @@ fun ControlPanelScreen(
     val connectionState by bluetoothManager.connectionState.collectAsState()
     val isConnected = connectionState is CustomBluetoothManager.ConnectionState.CONNECTED
     
-    var currentSpeed by remember { mutableFloatStateOf(200f) }
+    var currentSpeed by remember { mutableFloatStateOf(50f) }
     var currentAngle by remember { mutableFloatStateOf(0f) }
     var isBalanceEnabled by remember { mutableStateOf(false) }
     var visionMode by remember { mutableIntStateOf(0) } // 0:关闭, 1:循迹, 2:物体追踪
